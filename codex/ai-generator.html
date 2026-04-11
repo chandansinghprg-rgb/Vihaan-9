@@ -1,0 +1,822 @@
+<!DOCTYPE html>
+<html lang="en" class="scroll-smooth">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>NeuralForge | AI Image Generator</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            neonCyan:    '#00f3ff',
+            neonMagenta: '#ff00ff',
+            neonLime:    '#bcff00',
+            darkBg:      '#050505',
+          },
+          fontFamily: {
+            sans: ['Inter', 'sans-serif'],
+            mono: ['JetBrains Mono', 'monospace'],
+          },
+        }
+      }
+    }
+  </script>
+  <style>
+    :root { --x: 50%; --y: 50%; }
+
+    body { background-color: #050505; color: white; overflow-x: hidden; }
+
+    .cursor-glare {
+      position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+      pointer-events: none;
+      background: radial-gradient(circle at var(--x) var(--y), rgba(188,255,0,0.10) 0%, transparent 38%);
+      z-index: 999;
+    }
+
+    .lattice-bg {
+      background-image:
+        linear-gradient(to right,  rgba(255,255,255,0.02) 1px, transparent 1px),
+        linear-gradient(to bottom, rgba(255,255,255,0.02) 1px, transparent 1px);
+      background-size: 30px 30px;
+    }
+
+    .glass-card {
+      background: rgba(255,255,255,0.03);
+      backdrop-filter: blur(24px);
+      border: 1px solid rgba(255,255,255,0.08);
+      box-shadow: 0 8px 32px 0 rgba(0,0,0,0.8);
+    }
+
+    .neon-border-hover:hover {
+      border-color: #bcff00 !important;
+      box-shadow: 0 0 18px rgba(188,255,0,0.35);
+    }
+
+    .neon-border-hover-cyan:hover {
+      border-color: #00f3ff !important;
+      box-shadow: 0 0 18px rgba(0,243,255,0.35);
+    }
+
+    .perspective-card {
+      transform-style: preserve-3d;
+      transition: transform 0.12s ease-out;
+    }
+
+    /* ── Shimmer animation ────────────────── */
+    @keyframes shimmer {
+      0%   { background-position: -200% 0; }
+      100% { background-position:  200% 0; }
+    }
+    .shimmer {
+      background: linear-gradient(90deg, rgba(255,255,255,0.0) 0%, rgba(188,255,0,0.07) 50%, rgba(255,255,255,0.0) 100%);
+      background-size: 200% 100%;
+      animation: shimmer 2.4s infinite;
+    }
+
+    /* ── Scanline for generated image ─────── */
+    @keyframes scanline {
+      0%   { top: -10%; }
+      100% { top: 110%; }
+    }
+    .scan-line {
+      position: absolute; left: 0; right: 0; height: 2px;
+      background: rgba(188,255,0,0.3);
+      box-shadow: 0 0 16px rgba(188,255,0,0.5);
+      animation: scanline 2s linear infinite;
+      pointer-events: none;
+    }
+
+    /* ── Block overlay ────────────────────── */
+    @keyframes blockIn {
+      0%   { opacity: 0; transform: scale(0.92); }
+      100% { opacity: 1; transform: scale(1); }
+    }
+    .block-overlay {
+      animation: blockIn 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+
+    /* ── Pulse dot ────────────────────────── */
+    @keyframes ping { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:.4;transform:scale(1.4)} }
+    .ping { animation: ping 2s cubic-bezier(0,0,.2,1) infinite; }
+
+    /* ── Canvas Noise Texture ─────────────── */
+    .noise-overlay {
+      position: absolute; inset: 0; pointer-events: none;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.03'/%3E%3C/svg%3E");
+      background-size: 256px 256px;
+      mix-blend-mode: overlay;
+      opacity: 0.4;
+    }
+
+    /* ── Prompt input ─────────────────────── */
+    .prompt-input {
+      background: rgba(0,0,0,0.4);
+      border: 1px solid rgba(255,255,255,0.08);
+      color: white;
+      font-family: 'JetBrains Mono', monospace;
+      resize: none;
+      outline: none;
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+    .prompt-input:focus {
+      border-color: rgba(188,255,0,0.4);
+      box-shadow: 0 0 20px rgba(188,255,0,0.1);
+    }
+    .prompt-input::placeholder { color: rgba(255,255,255,0.2); }
+
+    /* ── Style tags ───────────────────────── */
+    .style-tag {
+      cursor: pointer; user-select: none;
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(255,255,255,0.08);
+      transition: all 0.2s;
+    }
+    .style-tag:hover, .style-tag.active {
+      background: rgba(188,255,0,0.08);
+      border-color: rgba(188,255,0,0.35);
+      color: #bcff00;
+    }
+
+    /* ── History item ─────────────────────── */
+    .history-item { transition: all 0.2s; }
+    .history-item:hover { background: rgba(255,255,255,0.04); }
+
+    /* ── Denied banner ────────────────────── */
+    @keyframes glitch {
+      0%,100%{transform:translateX(0)}
+      20%{transform:translateX(-2px)}
+      40%{transform:translateX(2px)}
+      60%{transform:translateX(-1px)}
+      80%{transform:translateX(1px)}
+    }
+    .glitch { animation: glitch 0.4s steps(1) 3; }
+
+    /* ── Progress bar ─────────────────────── */
+    @keyframes progress {
+      0%{width:0%} 30%{width:35%} 60%{width:68%} 80%{width:82%} 100%{width:100%}
+    }
+    .progress-fill { animation: progress 3.2s ease-out forwards; }
+
+    @keyframes fadeIn { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)} }
+    .fade-in { animation: fadeIn 0.4s ease-out forwards; }
+
+    /* Scrollbar */
+    ::-webkit-scrollbar { width: 4px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: rgba(188,255,0,0.2); border-radius: 2px; }
+
+    /* ── Upload zone ──────────────────────── */
+    .upload-zone {
+      border: 2px dashed rgba(255,255,255,0.1);
+      transition: all 0.2s;
+      cursor: pointer;
+    }
+    .upload-zone:hover, .upload-zone.dragover {
+      border-color: rgba(188,255,0,0.4);
+      background: rgba(188,255,0,0.03);
+    }
+  </style>
+</head>
+<body class="font-sans antialiased">
+  <div class="cursor-glare" id="cursor-glare"></div>
+
+  <!-- Background blobs -->
+  <div class="fixed inset-0 overflow-hidden pointer-events-none -z-10">
+    <div class="absolute -top-[15%] -right-[10%] w-[45%] h-[55%] bg-[#bcff00] opacity-[0.06] blur-[130px] rounded-full"></div>
+    <div class="absolute top-[50%] -left-[10%]  w-[35%] h-[50%] bg-[#00f3ff] opacity-[0.07] blur-[120px] rounded-full"></div>
+    <div class="absolute -bottom-[5%]  right-[20%] w-[30%] h-[35%] bg-[#ff00ff] opacity-[0.05] blur-[100px] rounded-full"></div>
+  </div>
+
+  <!-- ── NAVBAR ──────────────────────────────────────────────────── -->
+  <nav class="fixed top-6 left-1/2 -translate-x-1/2 z-50">
+    <div class="glass-card px-6 py-3 rounded-full flex items-center gap-8">
+      <div class="flex items-center gap-2">
+        <div class="w-2 h-2 bg-neonLime rounded-full shadow-[0_0_8px_#bcff00]"></div>
+        <span class="font-mono text-xs tracking-widest uppercase opacity-60">NeuralForge v1.0</span>
+      </div>
+      <div class="h-4 w-[1px] bg-white/20"></div>
+      <div class="flex gap-5 text-sm font-medium">
+        <a href="#" class="text-neonLime">Generate</a>
+        <a href="#" class="opacity-40 hover:opacity-70 transition-opacity">Gallery</a>
+        <a href="#" class="opacity-40 hover:opacity-70 transition-opacity">Ledger</a>
+      </div>
+      <div class="h-4 w-[1px] bg-white/20"></div>
+      <div class="flex items-center gap-2">
+        <span id="nav-ledger-count" class="font-mono text-[10px] text-neonLime/60 uppercase tracking-widest">0 signed</span>
+        <div class="w-1.5 h-1.5 bg-neonLime rounded-full ping shadow-[0_0_6px_#bcff00]"></div>
+      </div>
+    </div>
+  </nav>
+
+  <!-- ── MAIN ───────────────────────────────────────────────────── -->
+  <main class="relative lattice-bg min-h-screen pt-28 pb-16 px-4">
+    <div class="max-w-7xl mx-auto">
+
+      <!-- Page header -->
+      <div class="mb-10 text-center">
+        <div class="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border border-neonLime/20 bg-neonLime/5 mb-5">
+          <div class="w-1.5 h-1.5 rounded-full bg-neonLime shadow-[0_0_6px_#bcff00]"></div>
+          <span class="font-mono text-[10px] uppercase tracking-widest text-neonLime/70">Sovereign-Gated · Neural Synthesis Engine</span>
+        </div>
+        <h1 class="text-4xl md:text-5xl font-bold tracking-tight mb-3">
+          <span class="text-white">Neural</span><span class="text-neonLime">Forge</span>
+        </h1>
+        <p class="font-mono text-xs text-white/30 uppercase tracking-widest">AI Image Synthesis · Identity-Protected · ZK-Verified</p>
+      </div>
+
+      <!-- ── GRID LAYOUT ─────────────────────────────────────────── -->
+      <div class="grid grid-cols-1 lg:grid-cols-[1fr_380px] gap-6">
+
+        <!-- LEFT: Generator Panel -->
+        <div class="space-y-5">
+
+          <!-- Prompt + Controls Card -->
+          <div class="glass-card rounded-2xl p-6 relative overflow-hidden neon-border-hover perspective-card transition-all">
+            <div class="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-neonLime to-transparent"></div>
+            <div class="noise-overlay"></div>
+
+            <div class="relative z-10">
+              <div class="flex items-center justify-between mb-4">
+                <div class="font-mono text-[10px] uppercase tracking-widest text-neonLime/60">// Prompt Interface</div>
+                <div class="flex items-center gap-2">
+                  <span class="font-mono text-[9px] text-white/30 uppercase tracking-widest">Model:</span>
+                  <span class="font-mono text-[9px] text-neonCyan uppercase tracking-widest">SovDiff-XL</span>
+                </div>
+              </div>
+
+              <!-- Prompt textarea -->
+              <textarea
+                id="prompt-input"
+                class="prompt-input w-full rounded-xl p-4 text-sm leading-relaxed h-28"
+                placeholder="Describe the image you want to generate... e.g. 'a biopunk city at dusk with neon lattice overlays'"></textarea>
+
+              <!-- Negative prompt -->
+              <div class="mt-3">
+                <div class="font-mono text-[9px] text-white/30 uppercase tracking-widest mb-1.5">Negative Prompt</div>
+                <input id="negative-prompt" type="text"
+                  class="prompt-input w-full rounded-lg px-4 py-2.5 text-xs"
+                  placeholder="blurry, watermark, low quality...">
+              </div>
+
+              <!-- Style tags -->
+              <div class="mt-4">
+                <div class="font-mono text-[9px] text-white/30 uppercase tracking-widest mb-2">Style Modifiers</div>
+                <div class="flex flex-wrap gap-2" id="style-tags">
+                  <span class="style-tag font-mono text-[9px] uppercase tracking-widest px-3 py-1 rounded-full" data-style="Cinematic">Cinematic</span>
+                  <span class="style-tag font-mono text-[9px] uppercase tracking-widest px-3 py-1 rounded-full active" data-style="Biopunk">Biopunk</span>
+                  <span class="style-tag font-mono text-[9px] uppercase tracking-widest px-3 py-1 rounded-full" data-style="Holographic">Holographic</span>
+                  <span class="style-tag font-mono text-[9px] uppercase tracking-widest px-3 py-1 rounded-full" data-style="Dark Minimal">Dark Minimal</span>
+                  <span class="style-tag font-mono text-[9px] uppercase tracking-widest px-3 py-1 rounded-full" data-style="Neural Grid">Neural Grid</span>
+                  <span class="style-tag font-mono text-[9px] uppercase tracking-widest px-3 py-1 rounded-full" data-style="ZK-Noir">ZK-Noir</span>
+                </div>
+              </div>
+
+              <!-- Settings row -->
+              <div class="mt-5 grid grid-cols-3 gap-3">
+                <div>
+                  <div class="font-mono text-[9px] text-white/30 uppercase tracking-widest mb-1.5">Resolution</div>
+                  <select id="res-select" class="prompt-input w-full rounded-lg px-3 py-2 text-xs">
+                    <option>512 × 512</option>
+                    <option selected>768 × 768</option>
+                    <option>1024 × 1024</option>
+                  </select>
+                </div>
+                <div>
+                  <div class="font-mono text-[9px] text-white/30 uppercase tracking-widest mb-1.5">Steps</div>
+                  <select id="steps-select" class="prompt-input w-full rounded-lg px-3 py-2 text-xs">
+                    <option>20</option>
+                    <option selected>30</option>
+                    <option>50</option>
+                  </select>
+                </div>
+                <div>
+                  <div class="font-mono text-[9px] text-white/30 uppercase tracking-widest mb-1.5">CFG Scale</div>
+                  <select id="cfg-select" class="prompt-input w-full rounded-lg px-3 py-2 text-xs">
+                    <option>5.0</option>
+                    <option selected>7.5</option>
+                    <option>12.0</option>
+                  </select>
+                </div>
+              </div>
+
+              <!-- Ledger Check / Generate buttons -->
+              <div class="mt-5 space-y-3">
+                <!-- Image upload — required input -->
+                <div>
+                  <div class="font-mono text-[9px] text-white/30 uppercase tracking-widest mb-2">
+                    Input Image <span class="text-red-400/60">· Required</span>
+                    <span class="ml-2 text-white/15">— Image is checked against Sovereign Ledger before generation</span>
+                  </div>
+                  <label id="ref-upload-label" class="upload-zone rounded-xl px-4 py-3 flex items-center justify-center gap-2 relative cursor-pointer">
+                    <input type="file" id="ref-upload" accept="image/*" class="absolute inset-0 opacity-0 cursor-pointer" onchange="handleRefUpload(event)">
+                    <i data-lucide="upload" class="w-4 h-4 text-white/30" id="ref-icon"></i>
+                    <span class="font-mono text-[10px] uppercase tracking-widest text-white/30" id="ref-label">Upload Image to Generate From</span>
+                  </label>
+                  <!-- Preview thumbnail -->
+                  <div id="ref-preview-wrap" class="hidden mt-2 relative rounded-xl overflow-hidden" style="height:80px;">
+                    <img id="ref-preview-img" src="" class="w-full h-full object-cover object-center" />
+                    <div class="absolute inset-0 flex items-center justify-center" style="background:rgba(0,0,0,0.4);">
+                      <span class="font-mono text-[8px] text-neonLime uppercase tracking-widest px-2 py-1 rounded" style="background:rgba(188,255,0,0.1);border:1px solid rgba(188,255,0,0.25);">✓ Image Loaded · Ledger Check Pending</span>
+                    </div>
+                  </div>
+                </div>
+                <button onclick="generateImage()" id="gen-btn"
+                  class="w-full py-3 bg-neonLime/10 border border-neonLime/40 text-neonLime font-mono text-xs uppercase tracking-widest rounded-xl hover:bg-neonLime/20 hover:border-neonLime/70 transition-all flex items-center justify-center gap-2">
+                  <i data-lucide="zap" class="w-4 h-4"></i>
+                  Check Ledger &amp; Generate
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- OUTPUT CANVAS -->
+          <div class="glass-card rounded-2xl overflow-hidden relative neon-border-hover perspective-card" id="output-card" style="min-height: 420px;">
+            <div class="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-neonCyan to-transparent"></div>
+            <div class="noise-overlay"></div>
+
+            <!-- Header bar -->
+            <div class="relative z-10 flex items-center justify-between px-5 py-3 border-b border-white/5">
+              <div class="font-mono text-[10px] uppercase tracking-widest text-neonCyan/60">// Output Canvas</div>
+              <div class="flex items-center gap-3">
+                <span id="out-status" class="font-mono text-[9px] uppercase tracking-widest text-white/30">Awaiting synthesis</span>
+                <div id="out-dot" class="w-1.5 h-1.5 rounded-full bg-white/20"></div>
+              </div>
+            </div>
+
+            <!-- Idle state -->
+            <div id="idle-state" class="relative z-10 flex flex-col items-center justify-center p-12 gap-5" style="min-height: 360px;">
+              <div class="w-20 h-20 rounded-full border border-white/8 flex items-center justify-center relative">
+                <div class="absolute inset-0 rounded-full border border-neonLime/10 animate-ping"></div>
+                <i data-lucide="image" class="w-10 h-10 text-white/10"></i>
+              </div>
+              <div class="text-center">
+                <div class="font-mono text-[11px] text-white/20 uppercase tracking-widest">Neural canvas ready</div>
+                <div class="font-mono text-[9px] text-white/10 uppercase tracking-widest mt-1">Enter a prompt to synthesize</div>
+              </div>
+              <!-- Simulated grid lines -->
+              <div class="absolute inset-0 opacity-10" style="background-image: radial-gradient(circle at 50% 50%, rgba(188,255,0,0.15) 0%, transparent 60%);"></div>
+            </div>
+
+            <!-- Generating state -->
+            <div id="gen-state" class="relative z-10 hidden flex-col items-center justify-center p-10 gap-6" style="min-height: 360px;">
+              <div class="w-full max-w-sm">
+                <div class="flex justify-between mb-2">
+                  <span class="font-mono text-[9px] text-neonLime/60 uppercase tracking-widest" id="gen-step-label">Initializing diffusion...</span>
+                  <span class="font-mono text-[9px] text-white/30 uppercase tracking-widest" id="gen-pct">0%</span>
+                </div>
+                <div class="w-full h-1 bg-white/5 rounded-full overflow-hidden">
+                  <div class="h-full bg-neonLime rounded-full" id="gen-progress" style="width:0%; transition: width 0.1s;"></div>
+                </div>
+              </div>
+              <div class="font-mono text-[10px] text-white/20 uppercase tracking-widest text-center" id="gen-substep">Loading SovDiff-XL checkpoint...</div>
+            </div>
+
+            <!-- Result state -->
+            <div id="result-state" class="relative z-10 hidden p-5" style="min-height: 360px;">
+              <div class="relative rounded-xl overflow-hidden" id="result-img-wrap">
+                <div class="scan-line" id="scan-line" style="display:none;"></div>
+                <canvas id="result-canvas" class="w-full rounded-xl" style="aspect-ratio: 1/1; background: #0a0a0a;"></canvas>
+                <!-- Overlay badges -->
+                <div class="absolute top-3 left-3 px-2 py-1 rounded font-mono text-[7px] text-neonLime uppercase tracking-widest" style="background:rgba(188,255,0,0.1);border:1px solid rgba(188,255,0,0.25);">
+                  ✓ Sovereign Synthesis
+                </div>
+                <div class="absolute top-3 right-3 font-mono text-[7px] text-white/40 uppercase tracking-widest px-2 py-1 rounded" style="background:rgba(0,0,0,0.5);" id="result-res">768×768</div>
+              </div>
+              <div class="mt-4 flex items-center justify-between">
+                <div>
+                  <div class="font-mono text-[9px] text-neonLime/50 uppercase tracking-widest" id="result-prompt-label">// Prompt</div>
+                  <div class="font-mono text-[10px] text-white/40 mt-0.5 line-clamp-2" id="result-prompt-text"></div>
+                </div>
+                <button onclick="downloadResult()" class="ml-4 px-4 py-2 border border-white/10 text-white/40 font-mono text-[9px] uppercase tracking-widest rounded-lg hover:border-neonLime/40 hover:text-neonLime transition-all flex items-center gap-1.5 shrink-0">
+                  <i data-lucide="download" class="w-3 h-3"></i> Save
+                </button>
+              </div>
+            </div>
+
+            <!-- BLOCK OVERLAY (sovereign protected) -->
+            <div id="block-overlay" class="absolute inset-0 z-20 hidden items-center justify-center" style="background:rgba(0,0,0,0.92); backdrop-filter: blur(8px);">
+              <div class="block-overlay text-center px-8 max-w-sm">
+                <div class="w-16 h-16 mx-auto mb-5 rounded-full border-2 border-red-500/60 flex items-center justify-center relative">
+                  <div class="absolute inset-0 rounded-full border border-red-500/30 animate-ping"></div>
+                  <i data-lucide="shield-off" class="w-8 h-8 text-red-400"></i>
+                </div>
+                <div class="font-mono text-xs text-red-400 uppercase tracking-widest glitch mb-2">⛔ Biometric Lock: Upload Denied</div>
+                <div class="font-mono text-[9px] text-white/40 uppercase tracking-widest mb-4 leading-relaxed">This image is registered on the Sovereign Identity Ledger. Generation using Sovereign-protected assets is prohibited.</div>
+                <div class="px-3 py-2 rounded-lg border border-red-500/20 bg-red-500/5 mb-4">
+                  <div class="font-mono text-[8px] text-red-400/60 uppercase tracking-widest" id="block-hash-gen">Hash: —</div>
+                  <div class="font-mono text-[8px] text-white/20 uppercase tracking-widest mt-0.5" id="block-signer-gen">Signed by: SovereignFace v1.0</div>
+                </div>
+                <button onclick="dismissBlock('block-overlay')" class="font-mono text-[9px] text-white/30 hover:text-white uppercase tracking-widest transition-colors">
+                  Dismiss
+                </button>
+              </div>
+            </div>
+
+          </div><!-- /output-card -->
+        </div><!-- /LEFT -->
+
+        <!-- RIGHT: Sidebar -->
+        <div class="space-y-5">
+
+          <!-- Ledger Status Card -->
+          <div class="glass-card rounded-2xl p-5 relative overflow-hidden neon-border-hover-cyan perspective-card">
+            <div class="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-neonCyan to-transparent"></div>
+            <div class="noise-overlay"></div>
+            <div class="relative z-10">
+              <div class="flex items-center justify-between mb-4">
+                <div class="font-mono text-[10px] uppercase tracking-widest text-neonCyan/60">// Identity Ledger</div>
+                <div class="flex items-center gap-1.5">
+                  <div class="w-1.5 h-1.5 rounded-full bg-neonCyan ping shadow-[0_0_6px_#00f3ff]"></div>
+                  <span class="font-mono text-[9px] text-neonCyan/60 uppercase tracking-widest">Live</span>
+                </div>
+              </div>
+              <div class="grid grid-cols-2 gap-3 mb-4">
+                <div class="rounded-xl p-3 border border-white/5 bg-white/[0.02]">
+                  <div class="font-mono text-[9px] text-white/30 uppercase tracking-widest mb-1">Signed Assets</div>
+                  <div class="font-mono text-2xl font-bold text-neonCyan" id="ledger-count">0</div>
+                </div>
+                <div class="rounded-xl p-3 border border-white/5 bg-white/[0.02]">
+                  <div class="font-mono text-[9px] text-white/30 uppercase tracking-widest mb-1">Protocol</div>
+                  <div class="font-mono text-sm font-bold text-neonLime">ZK-SHA3</div>
+                </div>
+              </div>
+              <!-- Ledger entries -->
+              <div class="space-y-2 max-h-40 overflow-y-auto" id="ledger-entries">
+                <div class="font-mono text-[9px] text-white/20 uppercase tracking-widest text-center py-4">
+                  No signed assets<br>in ledger
+                </div>
+              </div>
+              <div class="mt-3 pt-3 border-t border-white/5 flex items-center justify-between">
+                <span class="font-mono text-[9px] text-white/20 uppercase tracking-widest">Powered by SovereignFace</span>
+                <a href="ffffff.html" class="font-mono text-[9px] text-neonCyan/50 hover:text-neonCyan uppercase tracking-widest transition-colors">→ Go to Hub</a>
+              </div>
+            </div>
+          </div>
+
+          <!-- Generation History -->
+          <div class="glass-card rounded-2xl p-5 relative overflow-hidden">
+            <div class="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-neonMagenta to-transparent"></div>
+            <div class="noise-overlay"></div>
+            <div class="relative z-10">
+              <div class="flex items-center justify-between mb-4">
+                <div class="font-mono text-[10px] uppercase tracking-widest text-neonMagenta/60">// Gen History</div>
+                <span class="font-mono text-[9px] text-white/20 uppercase tracking-widest" id="hist-count">0 renders</span>
+              </div>
+              <div class="space-y-1 max-h-64 overflow-y-auto" id="history-list">
+                <div class="font-mono text-[9px] text-white/20 uppercase tracking-widest text-center py-6">No renders yet</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- System Info -->
+          <div class="glass-card rounded-2xl p-5 relative overflow-hidden">
+            <div class="noise-overlay"></div>
+            <div class="relative z-10">
+              <div class="font-mono text-[10px] uppercase tracking-widest text-white/30 mb-4">// System Status</div>
+              <div class="space-y-2.5">
+                <div class="flex justify-between items-center">
+                  <span class="font-mono text-[9px] text-white/30 uppercase tracking-widest">GPU VRAM</span>
+                  <span class="font-mono text-[9px] text-neonLime uppercase tracking-widest">24GB · A100</span>
+                </div>
+                <div class="flex justify-between items-center">
+                  <span class="font-mono text-[9px] text-white/30 uppercase tracking-widest">Queue Depth</span>
+                  <span class="font-mono text-[9px] text-white/50 uppercase tracking-widest">0 jobs</span>
+                </div>
+                <div class="flex justify-between items-center">
+                  <span class="font-mono text-[9px] text-white/30 uppercase tracking-widest">Sovereign Gate</span>
+                  <span class="font-mono text-[9px] text-neonCyan uppercase tracking-widest">● Active</span>
+                </div>
+                <div class="flex justify-between items-center">
+                  <span class="font-mono text-[9px] text-white/30 uppercase tracking-widest">ZK-Proof Engine</span>
+                  <span class="font-mono text-[9px] text-neonLime uppercase tracking-widest">● Online</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+        </div><!-- /RIGHT -->
+      </div><!-- /grid -->
+    </div><!-- /max-w-7xl -->
+  </main>
+
+  <!-- ═══════════════════════════════════════════════════════════ -->
+  <!-- SCRIPTS                                                     -->
+  <!-- ═══════════════════════════════════════════════════════════ -->
+  <script>
+    /* ── Lucide init ─────────────────────────────── */
+    document.addEventListener('DOMContentLoaded', () => lucide.createIcons());
+
+    /* ── Cursor glare ────────────────────────────── */
+    document.addEventListener('mousemove', e => {
+      document.getElementById('cursor-glare').style.cssText =
+        `--x:${e.clientX / window.innerWidth * 100}%;--y:${e.clientY / window.innerHeight * 100}%`;
+    });
+
+    /* ── Style tags toggle ───────────────────────── */
+    document.querySelectorAll('.style-tag').forEach(tag => {
+      tag.addEventListener('click', () => tag.classList.toggle('active'));
+    });
+
+    /* ── 3D card tilt ────────────────────────────── */
+    document.querySelectorAll('.perspective-card').forEach(card => {
+      card.addEventListener('mousemove', e => {
+        const r = card.getBoundingClientRect();
+        const x = (e.clientX - r.left) / r.width  - 0.5;
+        const y = (e.clientY - r.top)  / r.height - 0.5;
+        card.style.transform = `perspective(1200px) rotateY(${x*4}deg) rotateX(${-y*4}deg)`;
+      });
+      card.addEventListener('mouseleave', () => { card.style.transform = ''; });
+    });
+
+    /* ════════════════════════════════════════════════════════════
+       SOVEREIGN LEDGER — CONTROLLER (inline copy)
+       ════════════════════════════════════════════════════════════ */
+    const SovereignLedger = (() => {
+      const LEDGER_KEY = 'sovereign_identity_ledger_v1';
+      const CALLBACKS  = [];
+      function _read() {
+        try { return JSON.parse(localStorage.getItem(LEDGER_KEY) || '{}'); } catch { return {}; }
+      }
+      function _write(data) {
+        localStorage.setItem(LEDGER_KEY, JSON.stringify(data));
+        CALLBACKS.forEach(fn => fn(data));
+      }
+      async function _sha256(buffer) {
+        const h = await crypto.subtle.digest('SHA-256', buffer);
+        return Array.from(new Uint8Array(h)).map(b=>b.toString(16).padStart(2,'0')).join('');
+      }
+      function _readFile(file) {
+        return new Promise((res, rej) => {
+          const r = new FileReader();
+          r.onload = e => res(e.target.result);
+          r.onerror = rej;
+          r.readAsArrayBuffer(file);
+        });
+      }
+      async function signImage(file) {
+        const hash = await _sha256(await _readFile(file));
+        const ledger = _read();
+        ledger[hash] = { hash, filename: file.name, size: file.size, signedAt: new Date().toISOString(), signedBy: 'SovereignFace v1.0', zkProof: `0x${hash.slice(0,16).toUpperCase()}` };
+        _write(ledger); return { success: true, hash, entry: ledger[hash] };
+      }
+      async function checkImage(file) {
+        const hash = await _sha256(await _readFile(file));
+        const entry = _read()[hash] || null;
+        return { sovereign: !!entry, hash, entry };
+      }
+      function getAll() { return _read(); }
+      function clear()  { _write({}); }
+      function onLedgerUpdate(fn) { CALLBACKS.push(fn); }
+      function count() { return Object.keys(_read()).length; }
+      return { signImage, checkImage, getAll, clear, onLedgerUpdate, count };
+    })();
+
+    /* ── Ledger UI updater ────────────────────────── */
+    function refreshLedgerUI() {
+      const all = SovereignLedger.getAll();
+      const entries = Object.values(all);
+      const cnt = entries.length;
+
+      document.getElementById('ledger-count').textContent = cnt;
+      document.getElementById('nav-ledger-count').textContent = `${cnt} signed`;
+
+      const container = document.getElementById('ledger-entries');
+      if (cnt === 0) {
+        container.innerHTML = `<div class="font-mono text-[9px] text-white/20 uppercase tracking-widest text-center py-4">No signed assets<br>in ledger</div>`;
+        return;
+      }
+      container.innerHTML = entries.map(e => `
+        <div class="flex items-center gap-2 px-2 py-1.5 rounded-lg border border-white/5 bg-white/[0.02]">
+          <div class="w-1.5 h-1.5 rounded-full bg-neonCyan shrink-0"></div>
+          <div class="min-w-0">
+            <div class="font-mono text-[8px] text-white/50 uppercase tracking-widest truncate">${e.filename || 'unknown'}</div>
+            <div class="font-mono text-[7px] text-neonCyan/40 uppercase tracking-widest truncate">${e.hash.slice(0,20)}…</div>
+          </div>
+        </div>`).join('');
+    }
+
+    SovereignLedger.onLedgerUpdate(refreshLedgerUI);
+    refreshLedgerUI();
+
+    /* ── Reference upload handler ─────────────────── */
+    let pendingRefFile = null;
+    function handleRefUpload(e) {
+      const file = e.target.files[0];
+      if (!file) return;
+      pendingRefFile = file;
+      document.getElementById('ref-label').textContent = file.name;
+
+      // Show thumbnail preview
+      const reader = new FileReader();
+      reader.onload = ev => {
+        document.getElementById('ref-preview-img').src = ev.target.result;
+        document.getElementById('ref-preview-wrap').classList.remove('hidden');
+      };
+      reader.readAsDataURL(file);
+    }
+
+    /* ── Dismiss block overlay ────────────────────── */
+    function dismissBlock(id) {
+      const el = document.getElementById(id);
+      el.classList.add('hidden');
+      el.classList.remove('flex');
+    }
+
+    /* ── Generation history ───────────────────────── */
+    const genHistory = [];
+    function addHistory(prompt, status, hash) {
+      const time = new Date().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
+      genHistory.unshift({ prompt, status, hash, time });
+      const container = document.getElementById('history-list');
+      document.getElementById('hist-count').textContent = `${genHistory.length} renders`;
+      container.innerHTML = genHistory.map(h => `
+        <div class="history-item px-3 py-2 rounded-lg cursor-default">
+          <div class="flex items-center justify-between gap-2">
+            <span class="font-mono text-[9px] text-white/50 truncate">${h.prompt.slice(0,30)}${h.prompt.length>30?'…':''}</span>
+            <span class="font-mono text-[8px] ${h.status==='blocked'?'text-red-400':'text-neonLime'} uppercase tracking-widest shrink-0">${h.status}</span>
+          </div>
+          <div class="font-mono text-[7px] text-white/20 uppercase tracking-widest mt-0.5">${h.time}</div>
+        </div>`).join('');
+    }
+
+    /* ── Main generate function ───────────────────── */
+    async function generateImage() {
+      const prompt = document.getElementById('prompt-input').value.trim();
+
+      // ── Require image upload ──
+      if (!pendingRefFile) {
+        const label = document.getElementById('ref-upload-label');
+        label.style.borderColor = 'rgba(255,80,80,0.6)';
+        label.style.background  = 'rgba(255,0,0,0.04)';
+        document.getElementById('ref-label').textContent = '⚠ Please upload an image first';
+        document.getElementById('ref-label').style.color = 'rgba(255,100,100,0.8)';
+        setTimeout(() => {
+          label.style.borderColor = '';
+          label.style.background  = '';
+          document.getElementById('ref-label').textContent = 'Upload Image to Generate From';
+          document.getElementById('ref-label').style.color = '';
+        }, 2500);
+        return;
+      }
+      if (!prompt) {
+        document.getElementById('prompt-input').focus();
+        return;
+      }
+
+      // ── Step 1: Ledger check ──
+      const { sovereign, hash, entry } = await SovereignLedger.checkImage(pendingRefFile);
+      if (sovereign) {
+        document.getElementById('block-hash-gen').textContent   = `Hash: ${hash.slice(0, 24)}…`;
+        document.getElementById('block-signer-gen').textContent = `Signed by: ${entry.signedBy} · ${new Date(entry.signedAt).toLocaleDateString()}`;
+        const overlay = document.getElementById('block-overlay');
+        overlay.classList.remove('hidden');
+        overlay.classList.add('flex');
+        // Update preview badge to blocked
+        const prevWrap = document.getElementById('ref-preview-wrap');
+        if (prevWrap) prevWrap.querySelector('span').textContent = '⛔ Sovereign-Protected · Generation Blocked';
+        addHistory(prompt, 'blocked', hash);
+        return;
+      }
+
+      // ── Update preview badge: cleared ──
+      const prevWrap = document.getElementById('ref-preview-wrap');
+      if (prevWrap) {
+        prevWrap.querySelector('span').textContent = '✓ Ledger Check Passed · Synthesizing…';
+        prevWrap.querySelector('span').style.color = '#bcff00';
+      }
+
+      // ── Step 2: Run generation simulation ──
+      const idle    = document.getElementById('idle-state');
+      const genDiv  = document.getElementById('gen-state');
+      const result  = document.getElementById('result-state');
+
+      idle.classList.add('hidden');
+      result.classList.add('hidden');
+      genDiv.classList.remove('hidden');
+      genDiv.classList.add('flex');
+
+      document.getElementById('out-status').textContent = 'Synthesizing...';
+      document.getElementById('out-dot').className = 'w-1.5 h-1.5 rounded-full bg-neonLime animate-pulse shadow-[0_0_6px_#bcff00]';
+
+      const steps = [
+        [0,  'Initializing diffusion engine...'],
+        [12, 'Encoding text embeddings...'],
+        [25, 'Sampling latent space...'],
+        [45, 'Denoising step 15/30...'],
+        [62, 'Denoising step 22/30...'],
+        [78, 'Upscaling with SovDiff-XL...'],
+        [90, 'Applying Sovereign watermark...'],
+        [100,'Synthesis complete.'],
+      ];
+
+      for (const [pct, label] of steps) {
+        document.getElementById('gen-progress').style.width = pct + '%';
+        document.getElementById('gen-pct').textContent = pct + '%';
+        document.getElementById('gen-step-label').textContent = label;
+        document.getElementById('gen-substep').textContent = label;
+        await new Promise(r => setTimeout(r, 350 + Math.random() * 200));
+      }
+
+      // ── Step 3: Render result on canvas ──
+      genDiv.classList.add('hidden');
+      genDiv.classList.remove('flex');
+      result.classList.remove('hidden');
+
+      const canvas = document.getElementById('result-canvas');
+      const ctx    = canvas.getContext('2d');
+      canvas.width = canvas.height = 768;
+
+      // Procedural "generated" image
+      paintGeneratedImage(ctx, prompt);
+
+      document.getElementById('result-prompt-text').textContent = prompt;
+      document.getElementById('result-res').textContent = document.getElementById('res-select').value;
+      document.getElementById('out-status').textContent = 'Synthesis complete';
+      document.getElementById('out-dot').className = 'w-1.5 h-1.5 rounded-full bg-neonLime shadow-[0_0_6px_#bcff00]';
+
+      // Show scanline briefly
+      const sl = document.getElementById('scan-line');
+      sl.style.display = 'block';
+      setTimeout(() => sl.style.display = 'none', 2500);
+
+      addHistory(prompt, 'generated');
+    }
+
+    /* ── Procedural canvas art ────────────────────── */
+    function paintGeneratedImage(ctx, prompt) {
+      const W = 768;
+      // Background gradient
+      const bg = ctx.createLinearGradient(0, 0, W, W);
+      bg.addColorStop(0, '#050505');
+      bg.addColorStop(0.5, '#080d08');
+      bg.addColorStop(1, '#050508');
+      ctx.fillStyle = bg;
+      ctx.fillRect(0, 0, W, W);
+
+      // Grid lines
+      ctx.strokeStyle = 'rgba(188,255,0,0.06)';
+      ctx.lineWidth = 1;
+      for (let i = 0; i < W; i += 30) {
+        ctx.beginPath(); ctx.moveTo(i, 0);  ctx.lineTo(i, W);  ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(0, i);  ctx.lineTo(W, i);  ctx.stroke();
+      }
+
+      // Random blobs
+      const colors = ['rgba(188,255,0,', 'rgba(0,243,255,', 'rgba(255,0,255,'];
+      for (let i = 0; i < 6; i++) {
+        const grd = ctx.createRadialGradient(
+          Math.random()*W, Math.random()*W, 20,
+          Math.random()*W, Math.random()*W, 160 + Math.random()*200
+        );
+        const c = colors[i % colors.length];
+        grd.addColorStop(0, c + '0.12)');
+        grd.addColorStop(1, c + '0)');
+        ctx.fillStyle = grd;
+        ctx.fillRect(0, 0, W, W);
+      }
+
+      // Abstract shapes
+      for (let i = 0; i < 20; i++) {
+        ctx.beginPath();
+        ctx.arc(Math.random()*W, Math.random()*W, 2+Math.random()*4, 0, Math.PI*2);
+        ctx.fillStyle = colors[i%colors.length].replace('rgba(','').replace(')','') + ',0.6)';
+        ctx.fillStyle = i%2===0?'rgba(188,255,0,0.4)':'rgba(0,243,255,0.3)';
+        ctx.fill();
+      }
+
+      // Prompt text watermark
+      ctx.save();
+      ctx.font = '10px "JetBrains Mono"';
+      ctx.fillStyle = 'rgba(188,255,0,0.12)';
+      ctx.textAlign = 'center';
+      for (let y = 30; y < W; y += 55) {
+        ctx.fillText(prompt.toUpperCase().slice(0, 50), W/2, y);
+      }
+      ctx.restore();
+
+      // Sovereign badge
+      ctx.save();
+      ctx.fillStyle = 'rgba(188,255,0,0.08)';
+      ctx.strokeStyle = 'rgba(188,255,0,0.25)';
+      ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.roundRect(W-120, W-36, 110, 26, 4); ctx.fill(); ctx.stroke();
+      ctx.font = '9px "JetBrains Mono"'; ctx.fillStyle = 'rgba(188,255,0,0.5)'; ctx.textAlign = 'center';
+      ctx.fillText('SOVEREIGN SIGNED', W-65, W-19);
+      ctx.restore();
+    }
+
+    /* ── Download canvas ──────────────────────────── */
+    function downloadResult() {
+      const canvas = document.getElementById('result-canvas');
+      const a = document.createElement('a');
+      a.href = canvas.toDataURL('image/png');
+      a.download = 'neuralforge-output.png';
+      a.click();
+    }
+  </script>
+</body>
+</html>

@@ -1,0 +1,621 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MATLAB Learning Studio | ISMA 110:SEC-2</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Inter:wght@300;400;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0d0f1a;
+    --surface: #141726;
+    --card: #1a1f35;
+    --border: #252a45;
+    --accent: #4f6ef7;
+    --accent2: #7c3aed;
+    --green: #22c55e;
+    --orange: #f59e0b;
+    --red: #ef4444;
+    --cyan: #06b6d4;
+    --text: #e2e8f0;
+    --muted: #64748b;
+    --glow: 0 0 20px rgba(79,110,247,0.3);
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { background:var(--bg); color:var(--text); font-family:'Inter',sans-serif; min-height:100vh; }
+
+  /* NAV */
+  nav { background:rgba(20,23,38,0.95); backdrop-filter:blur(20px); border-bottom:1px solid var(--border); padding:0 2rem; position:sticky; top:0; z-index:100; display:flex; align-items:center; justify-content:space-between; height:60px; }
+  .logo { font-size:1.2rem; font-weight:800; background:linear-gradient(135deg,var(--accent),var(--cyan)); -webkit-background-clip:text; -webkit-text-fill-color:transparent; }
+  .nav-tabs { display:flex; gap:0.25rem; }
+  .nav-tab { padding:0.4rem 1rem; border-radius:6px; cursor:pointer; font-size:0.82rem; font-weight:600; color:var(--muted); transition:all 0.2s; border:none; background:transparent; }
+  .nav-tab:hover { color:var(--text); background:var(--border); }
+  .nav-tab.active { color:var(--accent); background:rgba(79,110,247,0.15); }
+
+  /* HERO */
+  .hero { padding:3rem 2rem 2rem; text-align:center; background:radial-gradient(ellipse 80% 50% at 50% -10%, rgba(79,110,247,0.15), transparent); }
+  .hero h1 { font-size:2.4rem; font-weight:800; margin-bottom:0.5rem; }
+  .hero h1 span { background:linear-gradient(135deg,var(--accent),var(--cyan)); -webkit-background-clip:text; -webkit-text-fill-color:transparent; }
+  .hero p { color:var(--muted); font-size:1rem; margin-bottom:1.5rem; }
+  .badges { display:flex; gap:0.5rem; justify-content:center; flex-wrap:wrap; }
+  .badge { padding:0.3rem 0.8rem; border-radius:20px; font-size:0.75rem; font-weight:600; border:1px solid; }
+  .badge-blue { border-color:var(--accent); color:var(--accent); background:rgba(79,110,247,0.1); }
+  .badge-green { border-color:var(--green); color:var(--green); background:rgba(34,197,94,0.1); }
+  .badge-orange { border-color:var(--orange); color:var(--orange); background:rgba(245,158,11,0.1); }
+  .badge-cyan { border-color:var(--cyan); color:var(--cyan); background:rgba(6,182,212,0.1); }
+
+  /* MAIN */
+  main { max-width:1100px; margin:0 auto; padding:2rem; }
+  .section { display:none; animation:fadeIn 0.4s ease; }
+  .section.active { display:block; }
+  @keyframes fadeIn { from{opacity:0;transform:translateY(10px)} to{opacity:1;transform:translateY(0)} }
+
+  /* UNIT CARDS */
+  .unit-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(240px,1fr)); gap:1rem; margin-bottom:2rem; }
+  .unit-card { background:var(--card); border:1px solid var(--border); border-radius:12px; padding:1.5rem; cursor:pointer; transition:all 0.3s; position:relative; overflow:hidden; }
+  .unit-card::before { content:''; position:absolute; top:0; left:0; right:0; height:3px; background:linear-gradient(90deg,var(--accent),var(--cyan)); transform:scaleX(0); transition:transform 0.3s; }
+  .unit-card:hover::before, .unit-card.active::before { transform:scaleX(1); }
+  .unit-card:hover { border-color:var(--accent); transform:translateY(-2px); box-shadow:var(--glow); }
+  .unit-card.active { border-color:var(--accent); box-shadow:var(--glow); }
+  .unit-num { font-size:0.7rem; font-weight:700; color:var(--accent); letter-spacing:2px; margin-bottom:0.5rem; }
+  .unit-title { font-size:1rem; font-weight:700; margin-bottom:0.5rem; }
+  .unit-desc { font-size:0.8rem; color:var(--muted); line-height:1.5; }
+  .unit-hours { font-size:0.75rem; color:var(--orange); font-weight:600; margin-top:0.75rem; }
+
+  /* CONTENT PANEL */
+  .content-panel { background:var(--card); border:1px solid var(--border); border-radius:12px; padding:2rem; margin-bottom:2rem; }
+  .panel-title { font-size:1.3rem; font-weight:700; margin-bottom:1.5rem; display:flex; align-items:center; gap:0.5rem; }
+  .panel-title .dot { width:10px; height:10px; border-radius:50%; background:var(--accent); }
+
+  /* CODE BLOCK */
+  .code-block { background:#0a0c17; border:1px solid var(--border); border-radius:8px; overflow:hidden; margin:1rem 0; }
+  .code-header { background:var(--surface); padding:0.5rem 1rem; display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--border); }
+  .code-lang { font-size:0.75rem; color:var(--muted); font-weight:600; }
+  .run-btn { background:var(--green); color:#fff; border:none; padding:0.25rem 0.75rem; border-radius:5px; font-size:0.75rem; font-weight:700; cursor:pointer; transition:all 0.2s; }
+  .run-btn:hover { opacity:0.85; transform:scale(1.05); }
+  pre { padding:1rem; font-family:'JetBrains Mono',monospace; font-size:0.82rem; line-height:1.7; overflow-x:auto; }
+  .kw { color:#c792ea; } .fn { color:#82aaff; } .num { color:#f78c6c; } .str { color:#c3e88d; } .cmt { color:#546e7a; } .op { color:#89ddff; }
+
+  /* OUTPUT BOX */
+  .output-box { background:#000d1a; border:1px solid #1a3a5c; border-radius:8px; padding:1rem; margin-top:0.5rem; font-family:'JetBrains Mono',monospace; font-size:0.82rem; line-height:1.6; color:#7dd3fc; min-height:60px; display:none; }
+  .output-box.show { display:block; }
+
+  /* CANVAS PLOT */
+  .plot-container { background:#0a0c17; border:1px solid var(--border); border-radius:8px; padding:1rem; margin:1rem 0; text-align:center; }
+  canvas { border-radius:6px; max-width:100%; }
+
+  /* QUIZ */
+  .quiz-card { background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:1.5rem; margin:1rem 0; }
+  .quiz-q { font-weight:600; margin-bottom:1rem; font-size:0.95rem; }
+  .quiz-options { display:grid; gap:0.5rem; }
+  .quiz-opt { background:var(--card); border:1px solid var(--border); border-radius:8px; padding:0.75rem 1rem; cursor:pointer; font-size:0.85rem; transition:all 0.2s; text-align:left; color:var(--text); }
+  .quiz-opt:hover { border-color:var(--accent); color:var(--accent); }
+  .quiz-opt.correct { border-color:var(--green); background:rgba(34,197,94,0.1); color:var(--green); }
+  .quiz-opt.wrong { border-color:var(--red); background:rgba(239,68,68,0.1); color:var(--red); }
+
+  /* FORMULA GRID */
+  .formula-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:0.75rem; margin:1rem 0; }
+  .formula-card { background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:1rem; }
+  .formula-label { font-size:0.7rem; color:var(--muted); margin-bottom:0.4rem; font-weight:600; letter-spacing:1px; text-transform:uppercase; }
+  .formula-code { font-family:'JetBrains Mono',monospace; font-size:0.85rem; color:var(--cyan); }
+
+  /* PROGRESS */
+  .progress-wrap { background:var(--surface); border-radius:20px; height:6px; margin:0.5rem 0 1.5rem; overflow:hidden; }
+  .progress-bar { height:100%; border-radius:20px; background:linear-gradient(90deg,var(--accent),var(--cyan)); transition:width 0.5s ease; }
+
+  /* TABS inside section */
+  .inner-tabs { display:flex; gap:0.5rem; margin-bottom:1.5rem; flex-wrap:wrap; }
+  .inner-tab { padding:0.4rem 1rem; border-radius:6px; cursor:pointer; font-size:0.82rem; font-weight:600; color:var(--muted); border:1px solid var(--border); background:transparent; transition:all 0.2s; }
+  .inner-tab:hover { color:var(--text); border-color:var(--accent); }
+  .inner-tab.active { color:#fff; background:var(--accent); border-color:var(--accent); }
+  .inner-content { display:none; }
+  .inner-content.active { display:block; }
+
+  /* SCORE */
+  .score-display { text-align:center; padding:2rem; }
+  .score-num { font-size:3rem; font-weight:800; color:var(--accent); }
+  .score-label { color:var(--muted); font-size:0.9rem; margin-top:0.5rem; }
+
+  /* responsive */
+  @media(max-width:600px) {
+    .hero h1 { font-size:1.6rem; }
+    nav { padding:0 1rem; }
+    main { padding:1rem; }
+    .nav-tab { padding:0.3rem 0.6rem; font-size:0.75rem; }
+  }
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="logo">⚡ MATLAB Studio</div>
+  <div class="nav-tabs">
+    <button class="nav-tab active" onclick="showSection('home',this)">🏠 Home</button>
+    <button class="nav-tab" onclick="showSection('learn',this)">📚 Learn</button>
+    <button class="nav-tab" onclick="showSection('plots',this)">📈 Plots</button>
+    <button class="nav-tab" onclick="showSection('quiz',this)">🧠 Quiz</button>
+  </div>
+</nav>
+
+<!-- HOME -->
+<section id="home" class="section active">
+  <div class="hero">
+    <h1>MATLAB <span>Learning Studio</span></h1>
+    <p>Interactive Mini Project · ISMA 110:SEC-2 · MATLAB Programming</p>
+    <div class="badges">
+      <span class="badge badge-blue">4 Units · 44 Hours</span>
+      <span class="badge badge-green">Interactive Examples</span>
+      <span class="badge badge-orange">Live Plots</span>
+      <span class="badge badge-cyan">Quiz Mode</span>
+    </div>
+  </div>
+  <main>
+    <div class="unit-grid">
+      <div class="unit-card" onclick="showSection('learn',document.querySelectorAll('.nav-tab')[1]);showUnit('u1')">
+        <div class="unit-num">UNIT 01</div>
+        <div class="unit-title">Intro to MATLAB</div>
+        <div class="unit-desc">Command Window, Arithmetic, Scalar Variables, Built-in Functions</div>
+        <div class="unit-hours">⏱ 10 Contact Hours</div>
+      </div>
+      <div class="unit-card" onclick="showSection('learn',document.querySelectorAll('.nav-tab')[1]);showUnit('u2')">
+        <div class="unit-num">UNIT 02</div>
+        <div class="unit-title">Arrays & Strings</div>
+        <div class="unit-desc">1D/2D Arrays, Addressing, Math Operations, Random Numbers</div>
+        <div class="unit-hours">⏱ 10 Contact Hours</div>
+      </div>
+      <div class="unit-card" onclick="showSection('learn',document.querySelectorAll('.nav-tab')[1]);showUnit('u3')">
+        <div class="unit-num">UNIT 03</div>
+        <div class="unit-title">Operators & Loops</div>
+        <div class="unit-desc">Relational Operators, Conditionals, Switch, For/While Loops, 2D Plots</div>
+        <div class="unit-hours">⏱ 12 Contact Hours</div>
+      </div>
+      <div class="unit-card" onclick="showSection('learn',document.querySelectorAll('.nav-tab')[1]);showUnit('u4')">
+        <div class="unit-num">UNIT 04</div>
+        <div class="unit-title">Polynomials & Symbolic</div>
+        <div class="unit-desc">Curve Fitting, Algebraic Equations, Differentiation, Integration</div>
+        <div class="unit-hours">⏱ 12 Contact Hours</div>
+      </div>
+    </div>
+
+    <div class="content-panel">
+      <div class="panel-title"><div class="dot"></div> Course Outcomes</div>
+      <div class="formula-grid">
+        <div class="formula-card"><div class="formula-label">CO1</div><div style="font-size:0.85rem;color:var(--text)">Basics & built-in functions of MATLAB</div></div>
+        <div class="formula-card"><div class="formula-label">CO2</div><div style="font-size:0.85rem;color:var(--text)">Math operations on arrays</div></div>
+        <div class="formula-card"><div class="formula-label">CO3</div><div style="font-size:0.85rem;color:var(--text)">Relational, logical operators, loops</div></div>
+        <div class="formula-card"><div class="formula-label">CO4</div><div style="font-size:0.85rem;color:var(--text)">2D Plots using plot & fplot</div></div>
+        <div class="formula-card"><div class="formula-label">CO5</div><div style="font-size:0.85rem;color:var(--text)">Polynomial & Algebraic Equations</div></div>
+      </div>
+    </div>
+  </main>
+</section>
+
+<!-- LEARN -->
+<section id="learn" class="section">
+  <main>
+    <div class="inner-tabs">
+      <button class="inner-tab active" id="tab-u1" onclick="showUnit('u1')">Unit 1: Intro</button>
+      <button class="inner-tab" id="tab-u2" onclick="showUnit('u2')">Unit 2: Arrays</button>
+      <button class="inner-tab" id="tab-u3" onclick="showUnit('u3')">Unit 3: Loops</button>
+      <button class="inner-tab" id="tab-u4" onclick="showUnit('u4')">Unit 4: Polynomials</button>
+    </div>
+
+    <!-- UNIT 1 -->
+    <div id="u1" class="inner-content active">
+      <div class="content-panel">
+        <div class="panel-title"><div class="dot" style="background:var(--accent)"></div>Unit 1 · Introduction to MATLAB</div>
+        <p style="color:var(--muted);font-size:0.88rem;margin-bottom:1.5rem">MATLAB (Matrix Laboratory) is a high-level programming environment for numerical computation, visualization, and programming.</p>
+
+        <div class="formula-grid" style="margin-bottom:1rem">
+          <div class="formula-card"><div class="formula-label">Arithmetic</div><div class="formula-code">+ - * / ^</div></div>
+          <div class="formula-card"><div class="formula-label">Square Root</div><div class="formula-code">sqrt(x)</div></div>
+          <div class="formula-card"><div class="formula-label">Absolute Value</div><div class="formula-code">abs(x)</div></div>
+          <div class="formula-card"><div class="formula-label">Trig Functions</div><div class="formula-code">sin, cos, tan</div></div>
+          <div class="formula-card"><div class="formula-label">Logarithm</div><div class="formula-code">log(x), log10(x)</div></div>
+          <div class="formula-card"><div class="formula-label">Round/Floor</div><div class="formula-code">round(x), floor(x)</div></div>
+        </div>
+
+        <div class="code-block">
+          <div class="code-header"><span class="code-lang">MATLAB — Scalar Variables & Built-in Functions</span><button class="run-btn" onclick="runCode('out1')">▶ Run</button></div>
+          <pre><span class="cmt">% Define scalar variables</span>
+a = <span class="num">15</span>;
+b = <span class="num">4</span>;
+
+<span class="cmt">% Arithmetic Operations</span>
+s = a + b        <span class="cmt">% s = 19</span>
+d = a - b        <span class="cmt">% d = 11</span>
+p = a * b        <span class="cmt">% p = 60</span>
+q = a / b        <span class="cmt">% q = 3.7500</span>
+pw = a ^ <span class="num">2</span>       <span class="cmt">% pw = 225</span>
+
+<span class="cmt">% Built-in Functions</span>
+r = <span class="fn">sqrt</span>(a)     <span class="cmt">% r = 3.8730</span>
+g = <span class="fn">abs</span>(-<span class="num">42</span>)    <span class="cmt">% g = 42</span>
+x = <span class="fn">sin</span>(<span class="fn">pi</span>/2)   <span class="cmt">% x = 1</span>
+l = <span class="fn">log</span>(<span class="fn">exp</span>(<span class="num">1</span>)) <span class="cmt">% l = 1</span></pre>
+        </div>
+        <div id="out1" class="output-box">
+s = 19<br>d = 11<br>p = 60<br>q = 3.7500<br>pw = 225<br>r = 3.8730<br>g = 42<br>x = 1<br>l = 1
+        </div>
+      </div>
+    </div>
+
+    <!-- UNIT 2 -->
+    <div id="u2" class="inner-content">
+      <div class="content-panel">
+        <div class="panel-title"><div class="dot" style="background:var(--cyan)"></div>Unit 2 · Arrays & Strings</div>
+
+        <div class="formula-grid" style="margin-bottom:1rem">
+          <div class="formula-card"><div class="formula-label">Row Vector</div><div class="formula-code">A = [1 2 3 4]</div></div>
+          <div class="formula-card"><div class="formula-label">Column Vector</div><div class="formula-code">B = [1;2;3;4]</div></div>
+          <div class="formula-card"><div class="formula-label">2D Matrix</div><div class="formula-code">M = [1 2;3 4]</div></div>
+          <div class="formula-card"><div class="formula-label">Indexing</div><div class="formula-code">A(2), M(1,2)</div></div>
+          <div class="formula-card"><div class="formula-label">Zeros/Ones</div><div class="formula-code">zeros(m,n), ones(m,n)</div></div>
+          <div class="formula-card"><div class="formula-label">Random</div><div class="formula-code">rand(m,n), randn(m,n)</div></div>
+          <div class="formula-card"><div class="formula-label">Size/Length</div><div class="formula-code">size(A), length(A)</div></div>
+          <div class="formula-card"><div class="formula-label">Transpose</div><div class="formula-code">A'</div></div>
+        </div>
+
+        <div class="code-block">
+          <div class="code-header"><span class="code-lang">MATLAB — Arrays & Operations</span><button class="run-btn" onclick="runCode('out2')">▶ Run</button></div>
+          <pre><span class="cmt">% 1D Array (Row Vector)</span>
+A = [<span class="num">10</span> <span class="num">20</span> <span class="num">30</span> <span class="num">40</span> <span class="num">50</span>];
+<span class="fn">disp</span>(A(<span class="num">3</span>))        <span class="cmt">% Index 3 → 30</span>
+
+<span class="cmt">% 2D Matrix</span>
+M = [<span class="num">1</span> <span class="num">2</span> <span class="num">3</span>; <span class="num">4</span> <span class="num">5</span> <span class="num">6</span>; <span class="num">7</span> <span class="num">8</span> <span class="num">9</span>];
+<span class="fn">disp</span>(M(<span class="num">2</span>,<span class="num">3</span>))       <span class="cmt">% Row 2, Col 3 → 6</span>
+
+<span class="cmt">% Math on Arrays</span>
+B = A * <span class="num">2</span>          <span class="cmt">% [20 40 60 80 100]</span>
+S = <span class="fn">sum</span>(A)         <span class="cmt">% 150</span>
+Mn = <span class="fn">mean</span>(A)       <span class="cmt">% 30</span>
+Mx = <span class="fn">max</span>(A)        <span class="cmt">% 50</span>
+
+<span class="cmt">% Random 3x3 matrix</span>
+R = <span class="fn">round</span>(<span class="fn">rand</span>(<span class="num">3</span>)*<span class="num">10</span>)
+
+<span class="cmt">% String</span>
+name = <span class="str">'MATLAB'</span>;
+<span class="fn">disp</span>([<span class="str">'Hello, '</span> name])</pre>
+        </div>
+        <div id="out2" class="output-box">
+A(3) = 30<br>M(2,3) = 6<br>B = [20 40 60 80 100]<br>S = 150<br>Mn = 30<br>Mx = 50<br>R =<br>&nbsp; 7 2 9<br>&nbsp; 1 5 3<br>&nbsp; 8 6 4<br>Hello, MATLAB
+        </div>
+      </div>
+    </div>
+
+    <!-- UNIT 3 -->
+    <div id="u3" class="inner-content">
+      <div class="content-panel">
+        <div class="panel-title"><div class="dot" style="background:var(--orange)"></div>Unit 3 · Operators, Loops & Plots</div>
+
+        <div class="formula-grid" style="margin-bottom:1rem">
+          <div class="formula-card"><div class="formula-label">Relational</div><div class="formula-code">== ~= &lt; &gt; &lt;= &gt;=</div></div>
+          <div class="formula-card"><div class="formula-label">Logical</div><div class="formula-code">&amp;&amp; || ~ &amp; |</div></div>
+          <div class="formula-card"><div class="formula-label">If/ElseIf</div><div class="formula-code">if ... elseif ... end</div></div>
+          <div class="formula-card"><div class="formula-label">For Loop</div><div class="formula-code">for i=1:n ... end</div></div>
+          <div class="formula-card"><div class="formula-label">While Loop</div><div class="formula-code">while cond ... end</div></div>
+          <div class="formula-card"><div class="formula-label">Switch Case</div><div class="formula-code">switch x case y ... end</div></div>
+        </div>
+
+        <div class="code-block">
+          <div class="code-header"><span class="code-lang">MATLAB — Loops & Conditionals</span><button class="run-btn" onclick="runCode('out3')">▶ Run</button></div>
+          <pre><span class="cmt">% For Loop — Sum of 1 to 10</span>
+total = <span class="num">0</span>;
+<span class="kw">for</span> i = <span class="num">1</span>:<span class="num">10</span>
+    total = total + i;
+<span class="kw">end</span>
+<span class="fn">disp</span>(total)     <span class="cmt">% 55</span>
+
+<span class="cmt">% While Loop — Factorial of 5</span>
+n = <span class="num">5</span>; fact = <span class="num">1</span>; k = <span class="num">1</span>;
+<span class="kw">while</span> k <= n
+    fact = fact * k;
+    k = k + <span class="num">1</span>;
+<span class="kw">end</span>
+<span class="fn">disp</span>(fact)      <span class="cmt">% 120</span>
+
+<span class="cmt">% Switch-Case</span>
+day = <span class="num">3</span>;
+<span class="kw">switch</span> day
+  <span class="kw">case</span> <span class="num">1</span>, <span class="fn">disp</span>(<span class="str">'Monday'</span>)
+  <span class="kw">case</span> <span class="num">3</span>, <span class="fn">disp</span>(<span class="str">'Wednesday'</span>)
+  <span class="kw">otherwise</span>, <span class="fn">disp</span>(<span class="str">'Other'</span>)
+<span class="kw">end</span></pre>
+        </div>
+        <div id="out3" class="output-box">
+total = 55<br>fact = 120<br>Wednesday
+        </div>
+      </div>
+    </div>
+
+    <!-- UNIT 4 -->
+    <div id="u4" class="inner-content">
+      <div class="content-panel">
+        <div class="panel-title"><div class="dot" style="background:var(--green)"></div>Unit 4 · Polynomials & Symbolic Math</div>
+
+        <div class="formula-grid" style="margin-bottom:1rem">
+          <div class="formula-card"><div class="formula-label">Polynomial</div><div class="formula-code">p = [1 -3 2] → x²-3x+2</div></div>
+          <div class="formula-card"><div class="formula-label">Evaluate</div><div class="formula-code">polyval(p, x)</div></div>
+          <div class="formula-card"><div class="formula-label">Roots</div><div class="formula-code">roots(p)</div></div>
+          <div class="formula-card"><div class="formula-label">Differentiate</div><div class="formula-code">polyder(p)</div></div>
+          <div class="formula-card"><div class="formula-label">Integrate</div><div class="formula-code">polyint(p)</div></div>
+          <div class="formula-card"><div class="formula-label">Curve Fit</div><div class="formula-code">polyfit(x, y, n)</div></div>
+        </div>
+
+        <div class="code-block">
+          <div class="code-header"><span class="code-lang">MATLAB — Polynomials</span><button class="run-btn" onclick="runCode('out4')">▶ Run</button></div>
+          <pre><span class="cmt">% Polynomial: p(x) = x² - 3x + 2</span>
+p = [<span class="num">1</span> -<span class="num">3</span> <span class="num">2</span>];
+
+<span class="cmt">% Evaluate at x = 4</span>
+val = <span class="fn">polyval</span>(p, <span class="num">4</span>)   <span class="cmt">% 4²-12+2 = 6</span>
+
+<span class="cmt">% Find Roots</span>
+r = <span class="fn">roots</span>(p)          <span class="cmt">% [2; 1]</span>
+
+<span class="cmt">% Derivative: dp/dx = 2x - 3</span>
+dp = <span class="fn">polyder</span>(p)       <span class="cmt">% [2 -3]</span>
+
+<span class="cmt">% Integral</span>
+ip = <span class="fn">polyint</span>(p)       <span class="cmt">% [1/3 -3/2 2 0]</span>
+
+<span class="cmt">% Curve Fitting (y = x²)</span>
+x = <span class="num">1</span>:<span class="num">5</span>;
+y = x.^<span class="num">2</span>;
+cf = <span class="fn">polyfit</span>(x, y, <span class="num">2</span>) <span class="cmt">% ≈ [1 0 0]</span></pre>
+        </div>
+        <div id="out4" class="output-box">
+val = 6<br>r = [2; 1]<br>dp = [2 -3]  → 2x - 3<br>ip = [0.3333 -1.5000 2 0]<br>cf ≈ [1.0000 0.0000 0.0000]
+        </div>
+      </div>
+    </div>
+  </main>
+</section>
+
+<!-- PLOTS -->
+<section id="plots" class="section">
+  <main>
+    <div class="content-panel">
+      <div class="panel-title"><div class="dot" style="background:var(--orange)"></div>Unit 3 — 2D Plot Visualizer</div>
+      <p style="color:var(--muted);font-size:0.85rem;margin-bottom:1.5rem">Simulate MATLAB's <code style="color:var(--cyan)">plot()</code> and <code style="color:var(--cyan)">fplot()</code> commands interactively.</p>
+      
+      <div style="display:flex;gap:0.75rem;flex-wrap:wrap;margin-bottom:1rem">
+        <button class="run-btn" style="background:var(--accent)" onclick="plotFunction('sin')">plot sin(x)</button>
+        <button class="run-btn" style="background:var(--accent2)" onclick="plotFunction('cos')">plot cos(x)</button>
+        <button class="run-btn" style="background:var(--orange)" onclick="plotFunction('quad')">plot x²</button>
+        <button class="run-btn" style="background:var(--cyan);color:#000" onclick="plotFunction('exp')">plot e^x</button>
+        <button class="run-btn" style="background:var(--green)" onclick="plotFunction('poly')">Polynomial</button>
+        <button class="run-btn" style="background:#e879f9" onclick="plotFunction('multi')">Multi-plot</button>
+      </div>
+
+      <div class="code-block" id="plot-code">
+        <div class="code-header"><span class="code-lang" id="plot-code-label">MATLAB Code</span></div>
+        <pre id="plot-code-txt" style="color:var(--muted)">% Click a button above to generate plot code</pre>
+      </div>
+
+      <div class="plot-container">
+        <canvas id="mainPlot" width="700" height="340"></canvas>
+      </div>
+    </div>
+
+    <!-- Histogram -->
+    <div class="content-panel">
+      <div class="panel-title"><div class="dot" style="background:var(--green)"></div>Histogram — Random Data</div>
+      <div style="display:flex;gap:0.75rem;margin-bottom:1rem">
+        <button class="run-btn" onclick="plotHistogram()">Generate rand() Histogram</button>
+      </div>
+      <div class="plot-container">
+        <canvas id="histPlot" width="700" height="280"></canvas>
+      </div>
+    </div>
+  </main>
+</section>
+
+<!-- QUIZ -->
+<section id="quiz" class="section">
+  <main>
+    <div class="content-panel">
+      <div class="panel-title"><div class="dot" style="background:var(--accent2)"></div>🧠 MATLAB Quiz — All 4 Units</div>
+      <p style="color:var(--muted);font-size:0.85rem;margin-bottom:0.5rem">Test your MATLAB knowledge based on the syllabus!</p>
+      <div class="progress-wrap"><div class="progress-bar" id="quizProgress" style="width:0"></div></div>
+      <div id="quizArea"></div>
+      <div id="quizScore" class="score-display" style="display:none">
+        <div class="score-num" id="scoreNum">0/10</div>
+        <div class="score-label">Your Score</div>
+        <br>
+        <button class="run-btn" style="background:var(--accent);padding:0.5rem 1.5rem;font-size:0.9rem" onclick="resetQuiz()">🔄 Retake Quiz</button>
+      </div>
+    </div>
+  </main>
+</section>
+
+<script>
+// =================== NAV ===================
+function showSection(id, tabEl) {
+  document.querySelectorAll('.section').forEach(s=>s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  document.querySelectorAll('.nav-tab').forEach(t=>t.classList.remove('active'));
+  if(tabEl) tabEl.classList.add('active');
+}
+
+// =================== UNITS ===================
+function showUnit(id) {
+  document.querySelectorAll('.inner-content').forEach(c=>c.classList.remove('active'));
+  document.querySelectorAll('.inner-tab').forEach(t=>t.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  const tab = document.getElementById('tab-'+id);
+  if(tab) tab.classList.add('active');
+  // Switch to learn section
+  document.querySelectorAll('.section').forEach(s=>s.classList.remove('active'));
+  document.getElementById('learn').classList.add('active');
+  document.querySelectorAll('.nav-tab').forEach(t=>t.classList.remove('active'));
+  document.querySelectorAll('.nav-tab')[1].classList.add('active');
+}
+
+// =================== RUN CODE ===================
+function runCode(outId) {
+  const box = document.getElementById(outId);
+  box.classList.add('show');
+  box.style.opacity = '0';
+  box.style.transition = 'opacity 0.4s';
+  setTimeout(()=>{ box.style.opacity='1'; }, 50);
+}
+
+// =================== PLOTS ===================
+const plotCodes = {
+  sin: {label:'sin(x) plot', code:`x = 0:0.1:2*pi;\ny = sin(x);\nplot(x, y, 'b-', 'LineWidth', 2);\ntitle('sin(x)'); xlabel('x'); ylabel('sin(x)');`},
+  cos: {label:'cos(x) plot', code:`x = 0:0.1:2*pi;\ny = cos(x);\nplot(x, y, 'm-', 'LineWidth', 2);\ntitle('cos(x)'); xlabel('x'); ylabel('cos(x)');`},
+  quad: {label:'x² plot', code:`x = -5:0.1:5;\ny = x.^2;\nplot(x, y, 'r-', 'LineWidth', 2);\ntitle('y = x^2'); xlabel('x'); ylabel('y');`},
+  exp: {label:'e^x plot', code:`x = -3:0.1:3;\ny = exp(x);\nplot(x, y, 'c-', 'LineWidth', 2);\ntitle('y = e^x'); xlabel('x'); ylabel('e^x');`},
+  poly: {label:'Polynomial x³-2x', code:`x = -3:0.1:3;\ny = x.^3 - 2*x;\nplot(x, y, 'g-', 'LineWidth', 2);\ntitle('y = x^3 - 2x'); xlabel('x'); ylabel('y');`},
+  multi: {label:'Multiple plots', code:`x = 0:0.1:2*pi;\nplot(x, sin(x), 'b', x, cos(x), 'r', x, sin(2*x), 'g');\nlegend('sin','cos','sin2x');\ntitle('Multiple Functions');`}
+};
+
+function plotFunction(type) {
+  const info = plotCodes[type];
+  document.getElementById('plot-code-label').textContent = 'MATLAB — ' + info.label;
+  document.getElementById('plot-code-txt').innerHTML = syntaxHL(info.code);
+  const canvas = document.getElementById('mainPlot');
+  const ctx = canvas.getContext('2d');
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  drawGrid(ctx, canvas.width, canvas.height);
+  if(type==='sin') drawPlot(ctx,canvas,x=>Math.sin(x),[0,2*Math.PI],[-1.2,1.2],'#4f6ef7');
+  else if(type==='cos') drawPlot(ctx,canvas,x=>Math.cos(x),[0,2*Math.PI],[-1.2,1.2],'#c792ea');
+  else if(type==='quad') drawPlot(ctx,canvas,x=>x*x,[-5,5],[-1,27],'#ef4444');
+  else if(type==='exp') drawPlot(ctx,canvas,x=>Math.exp(x),[-3,3],[-0.5,21],'#06b6d4');
+  else if(type==='poly') drawPlot(ctx,canvas,x=>x*x*x-2*x,[-3,3],[-6,6],'#22c55e');
+  else if(type==='multi') {
+    drawPlot(ctx,canvas,x=>Math.sin(x),[0,2*Math.PI],[-1.2,1.2],'#4f6ef7',false);
+    drawPlot(ctx,canvas,x=>Math.cos(x),[0,2*Math.PI],[-1.2,1.2],'#ef4444',false);
+    drawPlot(ctx,canvas,x=>Math.sin(2*x),[0,2*Math.PI],[-1.2,1.2],'#22c55e',false);
+    drawLegend(ctx,['sin(x)','cos(x)','sin(2x)'],['#4f6ef7','#ef4444','#22c55e']);
+  }
+}
+
+function drawGrid(ctx,w,h) {
+  ctx.fillStyle='#0a0c17'; ctx.fillRect(0,0,w,h);
+  ctx.strokeStyle='#1e2340'; ctx.lineWidth=1;
+  for(let i=0;i<=10;i++){
+    let x=i*(w/10); ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,h); ctx.stroke();
+    let y=i*(h/10); ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(w,y); ctx.stroke();
+  }
+  ctx.strokeStyle='#2a3060'; ctx.lineWidth=1.5;
+  ctx.beginPath(); ctx.moveTo(0,h/2); ctx.lineTo(w,h/2); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(w/2,0); ctx.lineTo(w/2,h); ctx.stroke();
+}
+
+function drawPlot(ctx,canvas,fn,xRange,yRange,color,clear=true) {
+  const w=canvas.width, h=canvas.height, pad=30;
+  const [x0,x1]=xRange, [y0,y1]=yRange;
+  const toX=x=>pad+(x-x0)/(x1-x0)*(w-2*pad);
+  const toY=y=>h-pad-(y-y0)/(y1-y0)*(h-2*pad);
+  ctx.strokeStyle=color; ctx.lineWidth=2.5; ctx.lineJoin='round';
+  ctx.beginPath();
+  let steps=500, first=true;
+  for(let i=0;i<=steps;i++){
+    let x=x0+i*(x1-x0)/steps, y=fn(x);
+    if(y<y0-1||y>y1+1){first=true;continue;}
+    if(first){ctx.moveTo(toX(x),toY(y));first=false;}
+    else ctx.lineTo(toX(x),toY(y));
+  }
+  ctx.stroke();
+}
+
+function drawLegend(ctx,labels,colors) {
+  let x=20,y=20;
+  labels.forEach((l,i)=>{
+    ctx.fillStyle=colors[i]; ctx.fillRect(x,y,18,4);
+    ctx.fillStyle='#e2e8f0'; ctx.font='11px Inter';
+    ctx.fillText(l,x+24,y+5); y+=18;
+  });
+}
+
+function plotHistogram() {
+  const canvas=document.getElementById('histPlot');
+  const ctx=canvas.getContext('2d');
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  drawGrid(ctx,canvas.width,canvas.height);
+  const data=Array.from({length:1000},()=>Math.random());
+  const bins=20, w=canvas.width, h=canvas.height, pad=30;
+  const counts=Array(bins).fill(0);
+  data.forEach(v=>counts[Math.min(Math.floor(v*bins),bins-1)]++);
+  const maxC=Math.max(...counts);
+  const bw=(w-2*pad)/bins;
+  counts.forEach((c,i)=>{
+    const bh=(c/maxC)*(h-2*pad-10);
+    ctx.fillStyle='rgba(79,110,247,0.7)';
+    ctx.fillRect(pad+i*bw,h-pad-bh,bw-2,bh);
+    ctx.strokeStyle='#4f6ef7'; ctx.lineWidth=1;
+    ctx.strokeRect(pad+i*bw,h-pad-bh,bw-2,bh);
+  });
+  ctx.fillStyle='#64748b'; ctx.font='11px Inter';
+  ctx.fillText('rand(1,1000) — 20 bins',pad+5,20);
+}
+
+function syntaxHL(code) {
+  return code.replace(/(%.*)/g,'<span class="cmt">$1</span>')
+    .replace(/\b(for|while|if|else|elseif|end|switch|case|otherwise|function)\b/g,'<span class="kw">$1</span>')
+    .replace(/\b(disp|plot|fplot|sqrt|abs|sin|cos|tan|log|exp|rand|randn|zeros|ones|size|length|sum|mean|max|min|round|floor|roots|polyval|polyfit|polyder|polyint|pi|mod)\b/g,'<span class="fn">$1</span>')
+    .replace(/\b(\d+\.?\d*)\b/g,'<span class="num">$1</span>')
+    .replace(/('[^']*')/g,'<span class="str">$1</span>');
+}
+
+// =================== QUIZ ===================
+const questions = [
+  {q:'What does `sqrt(16)` return in MATLAB?',opts:['8','4','2','16'],ans:1},
+  {q:'Which operator checks equality in MATLAB?',opts:['=','==','===','!='],ans:1},
+  {q:'How do you create a 3×3 zeros matrix in MATLAB?',opts:['zero(3,3)','zeros(3)','matrix(0,3)','empty(3)'],ans:1},
+  {q:'What is the MATLAB command to find roots of a polynomial?',opts:['solve()','polysolve()','roots()','find()'],ans:2},
+  {q:'Which symbol represents element-wise multiplication?',opts:['*','.^','.*','&'],ans:2},
+  {q:'Valid for loop syntax in MATLAB?',opts:['for(i=1;i<=5;i++)','for i in 1:5','for i = 1:5','foreach i 1:5'],ans:2},
+  {q:'What does `A\'` do in MATLAB?',opts:['Deletes A','Transposes A','Takes abs of A','Clears A'],ans:1},
+  {q:'Which command evaluates a polynomial at given x?',opts:['polyval()','polyeval()','evalp()','pval()'],ans:0},
+  {q:'How to generate random 2×2 matrix?',opts:['random(2,2)','rand(2)','rnd(2,2)','randn(2)'],ans:1},
+  {q:'What does `log(exp(1))` return?',opts:['0','e','1','2'],ans:2}
+];
+
+let qIdx=0, score=0;
+function renderQuiz() {
+  if(qIdx>=questions.length) {
+    document.getElementById('quizArea').innerHTML='';
+    document.getElementById('quizScore').style.display='block';
+    document.getElementById('scoreNum').textContent=score+'/'+questions.length;
+    return;
+  }
+  const q=questions[qIdx];
+  document.getElementById('quizProgress').style.width=(qIdx/questions.length*100)+'%';
+  document.getElementById('quizArea').innerHTML=`
+    <div class="quiz-card">
+      <div style="font-size:0.75rem;color:var(--muted);margin-bottom:0.5rem">Question ${qIdx+1} of ${questions.length}</div>
+      <div class="quiz-q">${q.q}</div>
+      <div class="quiz-options">${q.opts.map((o,i)=>`<button class="quiz-opt" onclick="checkAns(this,${i},${q.ans})">${o}</button>`).join('')}</div>
+    </div>`;
+}
+
+function checkAns(el,chosen,correct) {
+  const opts=document.querySelectorAll('.quiz-opt');
+  opts.forEach(o=>o.disabled=true);
+  opts[correct].classList.add('correct');
+  if(chosen===correct) score++;
+  else el.classList.add('wrong');
+  setTimeout(()=>{ qIdx++; renderQuiz(); },900);
+}
+
+function resetQuiz() {
+  qIdx=0; score=0;
+  document.getElementById('quizScore').style.display='none';
+  document.getElementById('quizProgress').style.width='0';
+  renderQuiz();
+}
+
+// Init
+window.onload = () => {
+  renderQuiz();
+  plotFunction('sin');
+  plotHistogram();
+};
+</script>
+</body>
+</html>

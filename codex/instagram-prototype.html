@@ -1,0 +1,873 @@
+<!DOCTYPE html>
+<html lang="en" class="scroll-smooth">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SovereignGram | Identity-Secured Feed</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            neonCyan:    '#00f3ff',
+            neonMagenta: '#ff00ff',
+            neonLime:    '#bcff00',
+            darkBg:      '#050505',
+          },
+          fontFamily: {
+            sans: ['Inter', 'sans-serif'],
+            mono: ['JetBrains Mono', 'monospace'],
+          },
+        }
+      }
+    }
+  </script>
+  <style>
+    :root { --x: 50%; --y: 50%; }
+
+    body { background-color: #050505; color: white; overflow-x: hidden; }
+
+    .cursor-glare {
+      position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+      pointer-events: none;
+      background: radial-gradient(circle at var(--x) var(--y), rgba(255,0,255,0.08) 0%, transparent 38%);
+      z-index: 999;
+    }
+
+    .lattice-bg {
+      background-image:
+        linear-gradient(to right,  rgba(255,255,255,0.02) 1px, transparent 1px),
+        linear-gradient(to bottom, rgba(255,255,255,0.02) 1px, transparent 1px);
+      background-size: 30px 30px;
+    }
+
+    .glass-card {
+      background: rgba(255,255,255,0.03);
+      backdrop-filter: blur(24px);
+      border: 1px solid rgba(255,255,255,0.08);
+      box-shadow: 0 8px 32px 0 rgba(0,0,0,0.8);
+    }
+
+    .neon-border-hover:hover {
+      border-color: #ff00ff !important;
+      box-shadow: 0 0 18px rgba(255,0,255,0.3);
+    }
+
+    .perspective-card {
+      transform-style: preserve-3d;
+      transition: transform 0.12s ease-out;
+    }
+
+    .noise-overlay {
+      position: absolute; inset: 0; pointer-events: none;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.03'/%3E%3C/svg%3E");
+      background-size: 256px 256px; mix-blend-mode: overlay; opacity: 0.4;
+    }
+
+    @keyframes fadeIn { from{opacity:0;transform:translateY(12px)} to{opacity:1;transform:translateY(0)} }
+    .fade-in { animation: fadeIn 0.4s ease-out forwards; }
+
+    @keyframes ping { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:.4;transform:scale(1.4)} }
+    .ping { animation: ping 2s cubic-bezier(0,0,.2,1) infinite; }
+
+    @keyframes glitch {
+      0%,100%{transform:translateX(0)}
+      20%{transform:translateX(-3px)}
+      40%{transform:translateX(3px)}
+      60%{transform:translateX(-1px)}
+      80%{transform:translateX(1px)}
+    }
+    .glitch { animation: glitch 0.4s steps(1) 3; }
+
+    @keyframes blockIn {
+      0%   { opacity: 0; transform: scale(0.88); }
+      100% { opacity: 1; transform: scale(1); }
+    }
+    .block-overlay-anim { animation: blockIn 0.35s cubic-bezier(0.34, 1.56, 0.64, 1); }
+
+    /* Upload zone */
+    .upload-zone {
+      border: 2px dashed rgba(255,0,255,0.2);
+      transition: all 0.25s;
+      cursor: pointer;
+    }
+    .upload-zone:hover, .upload-zone.dragover {
+      border-color: rgba(255,0,255,0.5);
+      background: rgba(255,0,255,0.04);
+      box-shadow: 0 0 20px rgba(255,0,255,0.1);
+    }
+
+    /* Feed post card */
+    .post-card {
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+    .post-card:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 12px 40px rgba(0,0,0,0.9);
+    }
+
+    /* Avatar rings */
+    .avatar-ring {
+      background: conic-gradient(#ff00ff, #00f3ff, #bcff00, #ff00ff);
+      padding: 2px;
+      border-radius: 50%;
+    }
+    .avatar-ring-inner {
+      background: #050505;
+      border-radius: 50%;
+      padding: 2px;
+    }
+
+    /* Tab bar */
+    .tab-btn { transition: all 0.2s; }
+    .tab-btn.active {
+      color: #ff00ff;
+      border-bottom: 2px solid #ff00ff;
+    }
+    .tab-btn:not(.active) { color: rgba(255,255,255,0.3); }
+
+    /* Heart button */
+    .like-btn { transition: all 0.2s; }
+    .like-btn.liked { color: #ff00ff; }
+    .like-btn:hover { color: #ff00ff; }
+
+    /* Comment input */
+    .comment-input {
+      background: rgba(0,0,0,0.3);
+      border: 1px solid rgba(255,255,255,0.06);
+      color: white;
+      font-family: 'Inter', sans-serif;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    .comment-input:focus { border-color: rgba(255,0,255,0.3); }
+    .comment-input::placeholder { color: rgba(255,255,255,0.2); }
+
+    /* Scrollbar */
+    ::-webkit-scrollbar { width: 4px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: rgba(255,0,255,0.2); border-radius: 2px; }
+
+    /* Stories row */
+    .story-avatar { cursor: pointer; }
+    .story-avatar:hover .avatar-ring { box-shadow: 0 0 14px rgba(255,0,255,0.5); }
+
+    /* Notification dot */
+    .notif-dot {
+      position: absolute; top: -2px; right: -2px;
+      width: 7px; height: 7px;
+      background: #ff00ff;
+      border-radius: 50%;
+      border: 1.5px solid #050505;
+      box-shadow: 0 0 6px #ff00ff;
+    }
+
+    /* Sovereign badge on post */
+    .sovereign-badge {
+      background: rgba(0,243,255,0.08);
+      border: 1px solid rgba(0,243,255,0.25);
+      color: #00f3ff;
+    }
+  </style>
+</head>
+<body class="font-sans antialiased">
+  <div class="cursor-glare" id="cursor-glare"></div>
+
+  <!-- Background blobs -->
+  <div class="fixed inset-0 overflow-hidden pointer-events-none -z-10">
+    <div class="absolute -top-[10%] -left-[5%]  w-[40%] h-[45%] bg-neonMagenta opacity-[0.06] blur-[130px] rounded-full"></div>
+    <div class="absolute top-[40%] -right-[10%] w-[35%] h-[55%] bg-neonCyan    opacity-[0.06] blur-[120px] rounded-full"></div>
+    <div class="absolute -bottom-[10%] left-[30%] w-[30%] h-[35%] bg-neonLime  opacity-[0.04] blur-[100px] rounded-full"></div>
+  </div>
+
+  <!-- ── NAVBAR ──────────────────────────────────────────── -->
+  <nav class="fixed top-0 left-0 right-0 z-50 border-b border-white/5" style="background:rgba(5,5,5,0.85);backdrop-filter:blur(20px);">
+    <div class="max-w-5xl mx-auto px-4 py-3 flex items-center justify-between">
+      <!-- Logo -->
+      <div class="flex items-center gap-2">
+        <div class="w-2 h-2 bg-neonMagenta rounded-full shadow-[0_0_8px_#ff00ff] ping"></div>
+        <span class="font-mono text-sm font-bold tracking-widest uppercase">
+          <span class="text-white">Sovereign</span><span class="text-neonMagenta">Gram</span>
+        </span>
+        <span class="font-mono text-[9px] text-white/20 uppercase tracking-widest ml-1">v1.0</span>
+      </div>
+
+      <!-- Center search -->
+      <div class="hidden md:flex items-center gap-2 bg-white/5 border border-white/8 rounded-full px-4 py-1.5 w-56">
+        <i data-lucide="search" class="w-3.5 h-3.5 text-white/30"></i>
+        <input type="text" placeholder="Search identities..." class="bg-transparent outline-none text-sm text-white/50 placeholder:text-white/20 font-mono text-xs w-full">
+      </div>
+
+      <!-- Right actions -->
+      <div class="flex items-center gap-4">
+        <div class="font-mono text-[9px] text-neonMagenta/50 uppercase tracking-widest hidden md:block" id="nav-ledger-count">0 protected</div>
+        <button onclick="openUploadModal()" class="relative flex items-center gap-2 px-4 py-2 bg-neonMagenta/10 border border-neonMagenta/40 text-neonMagenta font-mono text-[10px] uppercase tracking-widest rounded-full hover:bg-neonMagenta/20 transition-all">
+          <i data-lucide="plus-circle" class="w-3.5 h-3.5"></i>
+          New Post
+        </button>
+        <div class="relative">
+          <div class="w-8 h-8 rounded-full bg-gradient-to-br from-neonMagenta/30 to-neonCyan/20 border border-white/10 flex items-center justify-center cursor-pointer">
+            <i data-lucide="user" class="w-4 h-4 text-white/60"></i>
+          </div>
+          <div class="notif-dot"></div>
+        </div>
+      </div>
+    </div>
+  </nav>
+
+  <!-- ── STORIES BAR ────────────────────────────────────── -->
+  <div class="fixed top-[57px] left-0 right-0 z-40 border-b border-white/5 overflow-x-auto" style="background:rgba(5,5,5,0.8);backdrop-filter:blur(16px);">
+    <div class="flex items-center gap-5 px-4 py-3 max-w-5xl mx-auto w-max md:w-auto">
+      <!-- Your story -->
+      <div class="story-avatar flex flex-col items-center gap-1.5 shrink-0">
+        <div class="avatar-ring" style="background: conic-gradient(rgba(255,0,255,0.3), rgba(0,243,255,0.3), rgba(255,0,255,0.3));">
+          <div class="avatar-ring-inner">
+            <div class="w-12 h-12 rounded-full bg-white/5 border border-white/10 flex items-center justify-center">
+              <i data-lucide="plus" class="w-5 h-5 text-neonMagenta/60"></i>
+            </div>
+          </div>
+        </div>
+        <span class="font-mono text-[8px] text-white/30 uppercase tracking-widest">You</span>
+      </div>
+      <!-- Story entries -->
+      <div id="stories-row"></div>
+    </div>
+  </div>
+
+  <!-- ── MAIN CONTENT ───────────────────────────────────── -->
+  <main class="relative lattice-bg min-h-screen pt-36 pb-16 px-4">
+    <div class="max-w-5xl mx-auto grid grid-cols-1 lg:grid-cols-[1fr_300px] gap-8">
+
+      <!-- FEED -->
+      <div>
+        <!-- Tabs -->
+        <div class="flex gap-6 mb-6 border-b border-white/5 pb-1">
+          <button class="tab-btn active pb-2 font-mono text-[10px] uppercase tracking-widest" data-tab="for-you">For You</button>
+          <button class="tab-btn pb-2 font-mono text-[10px] uppercase tracking-widest" data-tab="following">Following</button>
+          <button class="tab-btn pb-2 font-mono text-[10px] uppercase tracking-widest" data-tab="sovereign">Sovereign Verified</button>
+        </div>
+
+        <!-- Posts -->
+        <div class="space-y-6" id="feed"></div>
+      </div>
+
+      <!-- SIDEBAR -->
+      <div class="hidden lg:block space-y-5 sticky top-36">
+
+        <!-- Identity Card -->
+        <div class="glass-card rounded-2xl p-5 relative overflow-hidden neon-border-hover perspective-card">
+          <div class="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-neonMagenta to-transparent"></div>
+          <div class="noise-overlay"></div>
+          <div class="relative z-10">
+            <div class="font-mono text-[10px] uppercase tracking-widest text-neonMagenta/60 mb-4">// Identity Card</div>
+            <div class="flex items-center gap-3 mb-4">
+              <div class="avatar-ring">
+                <div class="avatar-ring-inner">
+                  <div class="w-12 h-12 rounded-full bg-gradient-to-br from-neonMagenta/20 to-neonCyan/20 flex items-center justify-center">
+                    <i data-lucide="user" class="w-6 h-6 text-neonMagenta/50"></i>
+                  </div>
+                </div>
+              </div>
+              <div>
+                <div class="font-semibold text-sm">sovereign.user</div>
+                <div class="font-mono text-[9px] text-neonCyan/50 uppercase tracking-widest">ZK-Verified Identity</div>
+              </div>
+            </div>
+            <div class="grid grid-cols-3 gap-2 text-center mb-4">
+              <div>
+                <div class="font-bold text-lg" id="stat-posts">0</div>
+                <div class="font-mono text-[8px] text-white/30 uppercase tracking-widest">Posts</div>
+              </div>
+              <div>
+                <div class="font-bold text-lg">142</div>
+                <div class="font-mono text-[8px] text-white/30 uppercase tracking-widest">Followers</div>
+              </div>
+              <div>
+                <div class="font-bold text-lg">89</div>
+                <div class="font-mono text-[8px] text-white/30 uppercase tracking-widest">Following</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Ledger Status -->
+        <div class="glass-card rounded-2xl p-5 relative overflow-hidden perspective-card">
+          <div class="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-neonCyan to-transparent"></div>
+          <div class="noise-overlay"></div>
+          <div class="relative z-10">
+            <div class="flex items-center justify-between mb-4">
+              <div class="font-mono text-[10px] uppercase tracking-widest text-neonCyan/60">// Sovereign Ledger</div>
+              <div class="flex items-center gap-1.5">
+                <div class="w-1.5 h-1.5 rounded-full bg-neonCyan ping shadow-[0_0_6px_#00f3ff]"></div>
+                <span class="font-mono text-[8px] text-neonCyan/60 uppercase tracking-widest">Active</span>
+              </div>
+            </div>
+            <div class="grid grid-cols-2 gap-2 mb-3">
+              <div class="rounded-xl p-3 border border-white/5 bg-white/[0.02] text-center">
+                <div class="font-bold text-xl text-neonCyan" id="ledger-count">0</div>
+                <div class="font-mono text-[7px] text-white/25 uppercase tracking-widest">Protected</div>
+              </div>
+              <div class="rounded-xl p-3 border border-white/5 bg-white/[0.02] text-center">
+                <div class="font-bold text-xl text-neonLime" id="post-count">0</div>
+                <div class="font-mono text-[7px] text-white/25 uppercase tracking-widest">Uploaded</div>
+              </div>
+            </div>
+            <div class="space-y-1.5 max-h-32 overflow-y-auto" id="ledger-entries-sidebar">
+              <div class="font-mono text-[8px] text-white/20 uppercase tracking-widest text-center py-3">Ledger empty</div>
+            </div>
+            <div class="mt-3 pt-3 border-t border-white/5">
+              <a href="ffffff.html" class="block text-center font-mono text-[9px] text-neonCyan/40 hover:text-neonCyan uppercase tracking-widest transition-colors">→ Manage on SovereignFace</a>
+            </div>
+          </div>
+        </div>
+
+        <!-- Suggested -->
+        <div class="glass-card rounded-2xl p-5 relative overflow-hidden">
+          <div class="noise-overlay"></div>
+          <div class="relative z-10">
+            <div class="font-mono text-[10px] uppercase tracking-widest text-white/30 mb-4">// Suggested · Verified</div>
+            <div class="space-y-3" id="suggested-list"></div>
+          </div>
+        </div>
+
+      </div><!-- /sidebar -->
+    </div>
+  </main>
+
+  <!-- ═══════════════════════════════════════════════════════
+       UPLOAD MODAL
+  ═══════════════════════════════════════════════════════ -->
+  <div id="upload-modal" class="fixed inset-0 z-[100] hidden items-center justify-center p-4" style="background:rgba(0,0,0,0.85);backdrop-filter:blur(10px);">
+    <div class="glass-card rounded-2xl w-full max-w-md relative overflow-hidden fade-in">
+      <div class="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-neonMagenta to-transparent"></div>
+      <div class="noise-overlay"></div>
+      <div class="relative z-10 p-6">
+        <div class="flex items-center justify-between mb-5">
+          <div class="font-mono text-[10px] uppercase tracking-widest text-neonMagenta/60">// New Post Upload</div>
+          <button onclick="closeUploadModal()" class="text-white/30 hover:text-white transition-colors">
+            <i data-lucide="x" class="w-5 h-5"></i>
+          </button>
+        </div>
+
+        <!-- Drop zone -->
+        <div id="modal-drop-zone" class="upload-zone rounded-2xl p-8 flex flex-col items-center gap-3 mb-5 relative"
+          ondragover="event.preventDefault();this.classList.add('dragover')"
+          ondragleave="this.classList.remove('dragover')"
+          ondrop="handleDrop(event)">
+          <input type="file" id="modal-file-input" accept="image/*" class="absolute inset-0 opacity-0 cursor-pointer" onchange="handleModalFileSelect(event)">
+          <div id="modal-preview" class="hidden w-full">
+            <img id="modal-preview-img" src="" class="w-full max-h-48 object-cover rounded-xl mb-3" />
+          </div>
+          <div id="modal-upload-placeholder" class="flex flex-col items-center gap-3">
+            <i data-lucide="image-plus" class="w-10 h-10 text-neonMagenta/30"></i>
+            <div class="text-center">
+              <div class="font-mono text-[10px] text-white/40 uppercase tracking-widest">Drop image here or click to browse</div>
+              <div class="font-mono text-[8px] text-white/20 uppercase tracking-widest mt-1">PNG · JPG · WEBP · Max 10MB</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Caption -->
+        <div class="mb-4">
+          <div class="font-mono text-[9px] text-white/30 uppercase tracking-widest mb-2">Caption</div>
+          <textarea id="post-caption" class="comment-input w-full rounded-xl px-4 py-3 text-sm resize-none h-20" placeholder="Write a caption..."></textarea>
+        </div>
+
+        <!-- Tags -->
+        <div class="mb-5">
+          <div class="font-mono text-[9px] text-white/30 uppercase tracking-widest mb-2">Tags</div>
+          <input id="post-tags" type="text" class="comment-input w-full rounded-xl px-4 py-2.5 text-sm" placeholder="#identity #sovereign #zkproof">
+        </div>
+
+        <!-- Upload / Cancel -->
+        <div class="flex gap-3">
+          <button onclick="closeUploadModal()" class="flex-1 py-3 border border-white/10 text-white/30 font-mono text-[10px] uppercase tracking-widest rounded-xl hover:border-white/25 hover:text-white/50 transition-all">
+            Cancel
+          </button>
+          <button onclick="submitPost()" id="submit-btn"
+            class="flex-1 py-3 bg-neonMagenta/15 border border-neonMagenta/50 text-neonMagenta font-mono text-[10px] uppercase tracking-widest rounded-xl hover:bg-neonMagenta/25 transition-all flex items-center justify-center gap-2">
+            <i data-lucide="shield-check" class="w-4 h-4"></i>
+            Post to Feed
+          </button>
+        </div>
+
+        <!-- Ledger check result (inline) -->
+        <div id="ledger-check-result" class="hidden mt-4 p-3 rounded-xl border border-red-500/20 bg-red-500/5">
+          <div class="font-mono text-[9px] text-red-400/80 uppercase tracking-widest text-center" id="ledger-check-text"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════
+       BLOCK OVERLAY (full-screen)
+  ═══════════════════════════════════════════════════════ -->
+  <div id="block-overlay" class="fixed inset-0 z-[200] hidden items-center justify-center p-4" style="background:rgba(0,0,0,0.95);backdrop-filter:blur(12px);">
+    <div class="block-overlay-anim text-center max-w-md w-full">
+      <div class="glass-card rounded-2xl p-8 relative overflow-hidden">
+        <div class="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-red-500 to-transparent"></div>
+        <div class="noise-overlay"></div>
+        <div class="relative z-10">
+          <!-- Icon -->
+          <div class="w-20 h-20 mx-auto mb-6 rounded-full border-2 border-red-500/50 flex items-center justify-center relative">
+            <div class="absolute inset-0 rounded-full border border-red-500/20 animate-ping"></div>
+            <div class="absolute inset-2 rounded-full border border-red-500/10 animate-ping" style="animation-delay:0.3s;"></div>
+            <i data-lucide="shield-off" class="w-10 h-10 text-red-400 relative z-10"></i>
+          </div>
+
+          <div class="font-mono text-sm text-red-400 uppercase tracking-[0.2em] glitch mb-3">⛔ Biometric Lock: Upload Denied</div>
+
+          <div class="font-mono text-[10px] text-white/40 uppercase tracking-widest mb-5 leading-loose">
+            This image is registered on the<br>
+            <span class="text-neonCyan">Sovereign Identity Ledger.</span><br>
+            Uploading Sovereign-protected assets<br>is prohibited by protocol.
+          </div>
+
+          <!-- Hash info -->
+          <div class="rounded-xl border border-red-500/15 bg-red-500/[0.04] p-4 mb-5 text-left space-y-1.5">
+            <div class="flex justify-between items-center">
+              <span class="font-mono text-[8px] text-white/25 uppercase tracking-widest">Asset Hash</span>
+              <span class="font-mono text-[8px] text-red-400/70 uppercase tracking-widest" id="block-hash">—</span>
+            </div>
+            <div class="flex justify-between items-center">
+              <span class="font-mono text-[8px] text-white/25 uppercase tracking-widest">Signed By</span>
+              <span class="font-mono text-[8px] text-neonCyan/60 uppercase tracking-widest" id="block-signer">SovereignFace v1.0</span>
+            </div>
+            <div class="flex justify-between items-center">
+              <span class="font-mono text-[8px] text-white/25 uppercase tracking-widest">Signed At</span>
+              <span class="font-mono text-[8px] text-white/40 uppercase tracking-widest" id="block-date">—</span>
+            </div>
+            <div class="flex justify-between items-center">
+              <span class="font-mono text-[8px] text-white/25 uppercase tracking-widest">ZK-Proof</span>
+              <span class="font-mono text-[8px] text-neonLime/60 uppercase tracking-widest" id="block-zk">—</span>
+            </div>
+          </div>
+
+          <div class="flex gap-3">
+            <button onclick="dismissBlockOverlay()" class="flex-1 py-2.5 border border-white/10 text-white/30 font-mono text-[9px] uppercase tracking-widest rounded-xl hover:border-white/20 hover:text-white/50 transition-all">
+              Dismiss
+            </button>
+            <a href="ffffff.html" class="flex-1 py-2.5 bg-neonCyan/10 border border-neonCyan/30 text-neonCyan font-mono text-[9px] uppercase tracking-widest rounded-xl hover:bg-neonCyan/15 transition-all flex items-center justify-center gap-1.5">
+              <i data-lucide="external-link" class="w-3 h-3"></i>
+              SovereignFace Hub
+            </a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════
+       SCRIPTS
+  ═══════════════════════════════════════════════════════ -->
+  <script>
+    document.addEventListener('DOMContentLoaded', () => lucide.createIcons());
+
+    /* ── Cursor glare ────────────────────────────── */
+    document.addEventListener('mousemove', e => {
+      document.getElementById('cursor-glare').style.cssText =
+        `--x:${e.clientX/window.innerWidth*100}%;--y:${e.clientY/window.innerHeight*100}%`;
+    });
+
+    /* ── 3D tilt ──────────────────────────────────── */
+    document.querySelectorAll('.perspective-card').forEach(card => {
+      card.addEventListener('mousemove', e => {
+        const r = card.getBoundingClientRect();
+        const x = (e.clientX-r.left)/r.width - 0.5;
+        const y = (e.clientY-r.top)/r.height - 0.5;
+        card.style.transform = `perspective(1200px) rotateY(${x*3}deg) rotateX(${-y*3}deg)`;
+      });
+      card.addEventListener('mouseleave', () => { card.style.transform = ''; });
+    });
+
+    /* ── Tabs ──────────────────────────────────────── */
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+      });
+    });
+
+    /* ════════════════════════════════════════════════
+       SOVEREIGN LEDGER CONTROLLER (inline)
+       ════════════════════════════════════════════════ */
+    const SovereignLedger = (() => {
+      const LEDGER_KEY = 'sovereign_identity_ledger_v1';
+      const CALLBACKS  = [];
+      function _read() {
+        try { return JSON.parse(localStorage.getItem(LEDGER_KEY) || '{}'); } catch { return {}; }
+      }
+      function _write(data) {
+        localStorage.setItem(LEDGER_KEY, JSON.stringify(data));
+        CALLBACKS.forEach(fn => fn(data));
+      }
+      async function _sha256(buf) {
+        const h = await crypto.subtle.digest('SHA-256', buf);
+        return Array.from(new Uint8Array(h)).map(b=>b.toString(16).padStart(2,'0')).join('');
+      }
+      function _readFile(file) {
+        return new Promise((res,rej)=>{ const r=new FileReader(); r.onload=e=>res(e.target.result); r.onerror=rej; r.readAsArrayBuffer(file); });
+      }
+      async function signImage(file) {
+        const hash = await _sha256(await _readFile(file));
+        const ledger = _read();
+        ledger[hash] = { hash, filename: file.name, size: file.size, signedAt: new Date().toISOString(), signedBy: 'SovereignFace v1.0', zkProof: `0x${hash.slice(0,16).toUpperCase()}` };
+        _write(ledger); return { success: true, hash, entry: ledger[hash] };
+      }
+      async function checkImage(file) {
+        const hash = await _sha256(await _readFile(file));
+        const entry = _read()[hash] || null;
+        return { sovereign: !!entry, hash, entry };
+      }
+      function getAll()  { return _read(); }
+      function clear()   { _write({}); }
+      function onLedgerUpdate(fn) { CALLBACKS.push(fn); }
+      function count()  { return Object.keys(_read()).length; }
+      return { signImage, checkImage, getAll, clear, onLedgerUpdate, count };
+    })();
+
+    /* ── State ────────────────────────────────────── */
+    let posts     = [];
+    let pendingFile = null;
+    let postCount   = 0;
+
+    /* ── Seed feed with demo posts ────────────────── */
+    const DEMO_POSTS = [
+      { id:'d1', user:'@zkproof.art',   avatar:'ZK', color:'#00f3ff',   caption:'Lattice structures speak louder than words. Identity is sovereign.',    tags:['#zkproof','#lattice','#identity'], likes:247, time:'2h', verified:true,  canvasTheme:'cyan'   },
+      { id:'d2', user:'@biomesh.node',  avatar:'BM', color:'#bcff00',   caption:'Every node is a story. Every edge is a trust relationship.',             tags:['#biopunk','#mesh','#web3'],        likes:183, time:'4h', verified:true,  canvasTheme:'lime'   },
+      { id:'d3', user:'@void.protocol', avatar:'VP', color:'#ff00ff',   caption:'The void stares back. But it cannot clone what it cannot hash.',         tags:['#sovereign','#security'],          likes:421, time:'6h', verified:false, canvasTheme:'magenta'},
+      { id:'d4', user:'@data.axiom',    avatar:'DA', color:'#00f3ff',   caption:'Consensus is not given. It is verified, block by block.',                tags:['#consensus','#zk','#blockchain'],  likes:99,  time:'1d', verified:true,  canvasTheme:'cyan'   },
+    ];
+
+    const SUGGESTED_USERS = [
+      { handle:'@neuralcrypt.io',  color:'#00f3ff', followers:'12.4K' },
+      { handle:'@sovereign.lens',  color:'#bcff00', followers:'8.1K'  },
+      { handle:'@identity.zero',   color:'#ff00ff', followers:'5.7K'  },
+    ];
+
+    const STORY_USERS = [
+      { handle:'zk.art',   color:'#00f3ff' },
+      { handle:'biomesh',  color:'#bcff00' },
+      { handle:'void_p',   color:'#ff00ff' },
+      { handle:'d.axiom',  color:'#8b5cf6' },
+      { handle:'hexnode',  color:'#f97316' },
+    ];
+
+    /* ── Build stories ────────────────────────────── */
+    function buildStories() {
+      const row = document.getElementById('stories-row');
+      row.innerHTML = STORY_USERS.map(u => `
+        <span class="story-avatar flex flex-col items-center gap-1.5 shrink-0 inline-block mr-5">
+          <div class="avatar-ring" style="background:conic-gradient(${u.color}, rgba(0,0,0,0.1), ${u.color});">
+            <div class="avatar-ring-inner">
+              <div class="w-12 h-12 rounded-full flex items-center justify-center font-mono text-xs font-bold" style="background:rgba(0,0,0,0.6);color:${u.color};">
+                ${u.handle.slice(0,2).toUpperCase()}
+              </div>
+            </div>
+          </div>
+          <span class="font-mono text-[8px] text-white/25 uppercase tracking-widest">${u.handle}</span>
+        </span>`).join('');
+    }
+
+    /* ── Build suggested ──────────────────────────── */
+    function buildSuggested() {
+      document.getElementById('suggested-list').innerHTML = SUGGESTED_USERS.map(u => `
+        <div class="flex items-center justify-between gap-2">
+          <div class="flex items-center gap-2">
+            <div class="w-8 h-8 rounded-full flex items-center justify-center font-mono text-[9px] font-bold border border-white/10" style="background:rgba(0,0,0,0.5);color:${u.color};">${u.handle.slice(1,3).toUpperCase()}</div>
+            <div>
+              <div class="font-mono text-[9px] text-white/70 uppercase tracking-widest">${u.handle}</div>
+              <div class="font-mono text-[7px] text-white/25 uppercase tracking-widest">${u.followers} followers</div>
+            </div>
+          </div>
+          <button class="font-mono text-[8px] text-neonMagenta/60 hover:text-neonMagenta uppercase tracking-widest transition-colors border border-neonMagenta/20 hover:border-neonMagenta/40 px-2 py-0.5 rounded-full">Follow</button>
+        </div>`).join('');
+    }
+
+    /* ── Render a single post ─────────────────────── */
+    function renderPost(post, prepend = false) {
+      const wrap = document.createElement('div');
+      wrap.className = 'post-card glass-card rounded-2xl overflow-hidden fade-in';
+      wrap.id = `post-${post.id}`;
+
+      const themeColor = post.canvasTheme === 'cyan' ? '#00f3ff' : post.canvasTheme === 'lime' ? '#bcff00' : '#ff00ff';
+      const canvasId = `canvas-${post.id}`;
+
+      wrap.innerHTML = `
+        <div class="relative">
+          <div class="absolute top-0 left-0 right-0 h-px" style="background:linear-gradient(to right, transparent, ${themeColor}55, transparent);"></div>
+          <!-- Post Header -->
+          <div class="flex items-center justify-between px-5 py-3.5 border-b border-white/5">
+            <div class="flex items-center gap-3">
+              <div class="avatar-ring" style="background:conic-gradient(${themeColor}80, rgba(0,0,0,0.2), ${themeColor}80);">
+                <div class="avatar-ring-inner">
+                  <div class="w-9 h-9 rounded-full flex items-center justify-center font-mono text-xs font-bold" style="background:rgba(0,0,0,0.7);color:${themeColor};">${post.avatar}</div>
+                </div>
+              </div>
+              <div>
+                <div class="flex items-center gap-1.5">
+                  <span class="font-mono text-xs text-white/80 uppercase tracking-widest">${post.user}</span>
+                  ${post.verified ? `<span class="sovereign-badge font-mono text-[7px] uppercase tracking-widest px-1.5 py-0.5 rounded-full">✓ Verified</span>` : ''}
+                </div>
+                <div class="font-mono text-[8px] text-white/25 uppercase tracking-widest">${post.time} ago</div>
+              </div>
+            </div>
+            <button class="text-white/20 hover:text-white/60 transition-colors">
+              <i data-lucide="more-horizontal" class="w-4 h-4"></i>
+            </button>
+          </div>
+
+          <!-- Image -->
+          <div class="relative" style="aspect-ratio:4/3;">
+            <canvas id="${canvasId}" class="w-full h-full" style="display:block;"></canvas>
+            <!-- Caption overlay bottom -->
+          </div>
+
+          <!-- Actions -->
+          <div class="px-5 py-4">
+            <div class="flex items-center justify-between mb-3">
+              <div class="flex items-center gap-4">
+                <button class="like-btn flex items-center gap-1.5 text-white/40 hover:text-neonMagenta transition-colors" onclick="toggleLike(this, '${post.id}')">
+                  <i data-lucide="heart" class="w-5 h-5"></i>
+                  <span class="font-mono text-[10px] like-count">${post.likes}</span>
+                </button>
+                <button class="flex items-center gap-1.5 text-white/30 hover:text-neonCyan transition-colors">
+                  <i data-lucide="message-circle" class="w-5 h-5"></i>
+                  <span class="font-mono text-[10px]">${Math.floor(Math.random()*30+5)}</span>
+                </button>
+                <button class="flex items-center gap-1.5 text-white/30 hover:text-neonLime transition-colors">
+                  <i data-lucide="send" class="w-5 h-5"></i>
+                </button>
+              </div>
+              <button class="text-white/25 hover:text-white/60 transition-colors">
+                <i data-lucide="bookmark" class="w-4.5 h-4.5"></i>
+              </button>
+            </div>
+            <p class="text-sm text-white/70 leading-relaxed mb-2">
+              <span class="font-semibold text-white/80 mr-1">${post.user}</span>${post.caption}
+            </p>
+            <div class="flex flex-wrap gap-1.5 mb-3">
+              ${post.tags.map(t=>`<span class="font-mono text-[8px] uppercase tracking-widest px-2 py-0.5 rounded-full border border-neonMagenta/15 text-neonMagenta/50">${t}</span>`).join('')}
+            </div>
+            <!-- Comment input -->
+            <div class="flex items-center gap-2 mt-3 pt-3 border-t border-white/5">
+              <input type="text" class="comment-input flex-1 rounded-full px-4 py-1.5 text-xs" placeholder="Add a comment...">
+              <button class="font-mono text-[9px] text-neonMagenta/50 hover:text-neonMagenta uppercase tracking-widest transition-colors">Post</button>
+            </div>
+          </div>
+        </div>`;
+
+      const feed = document.getElementById('feed');
+      if (prepend) feed.prepend(wrap); else feed.append(wrap);
+
+      // Draw canvas after DOM insertion
+      requestAnimationFrame(() => {
+        paintPostImage(document.getElementById(canvasId), post.canvasTheme, post.caption);
+        lucide.createIcons({ nodes: [wrap] });
+      });
+    }
+
+    /* ── Procedural canvas per post ───────────────── */
+    function paintPostImage(canvas, theme, caption) {
+      const W = canvas.offsetWidth  || 600;
+      const H = canvas.offsetHeight || 450;
+      canvas.width  = W;
+      canvas.height = H;
+      const ctx = canvas.getContext('2d');
+
+      const palettes = {
+        cyan:    ['rgba(0,243,255,', 'rgba(0,100,150,'],
+        lime:    ['rgba(188,255,0,', 'rgba(80,130,0,'],
+        magenta: ['rgba(255,0,255,', 'rgba(150,0,150,'],
+      };
+      const pal = palettes[theme] || palettes['cyan'];
+
+      // BG
+      ctx.fillStyle = '#060808';
+      ctx.fillRect(0, 0, W, H);
+
+      // Grid
+      ctx.strokeStyle = pal[0] + '0.05)';
+      ctx.lineWidth = 1;
+      for (let x = 0; x < W; x += 24) { ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,H); ctx.stroke(); }
+      for (let y = 0; y < H; y += 24) { ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(W,y); ctx.stroke(); }
+
+      // Blobs
+      for (let i = 0; i < 5; i++) {
+        const g = ctx.createRadialGradient(Math.random()*W,Math.random()*H,10,Math.random()*W,Math.random()*H,120+Math.random()*160);
+        g.addColorStop(0, pal[0] + '0.18)');
+        g.addColorStop(1, pal[0] + '0)');
+        ctx.fillStyle = g; ctx.fillRect(0,0,W,H);
+      }
+
+      // Dots
+      for (let i = 0; i < 30; i++) {
+        ctx.beginPath();
+        ctx.arc(Math.random()*W, Math.random()*H, 1+Math.random()*2.5, 0, Math.PI*2);
+        ctx.fillStyle = pal[0] + (0.2+Math.random()*0.4) + ')';
+        ctx.fill();
+      }
+
+      // Caption ghost
+      ctx.save();
+      ctx.font = `bold ${Math.floor(W/22)}px "JetBrains Mono"`;
+      ctx.fillStyle = pal[0] + '0.08)';
+      ctx.textAlign = 'center';
+      ctx.fillText(caption.slice(0,36).toUpperCase(), W/2, H/2);
+      ctx.restore();
+
+      // Bottom gradient
+      const fade = ctx.createLinearGradient(0,H-80,0,H);
+      fade.addColorStop(0, 'transparent');
+      fade.addColorStop(1, 'rgba(5,5,5,0.9)');
+      ctx.fillStyle = fade; ctx.fillRect(0,H-80,W,80);
+    }
+
+    /* ── Like toggle ──────────────────────────────── */
+    function toggleLike(btn, id) {
+      btn.classList.toggle('liked');
+      const countEl = btn.querySelector('.like-count');
+      const cur = parseInt(countEl.textContent);
+      countEl.textContent = btn.classList.contains('liked') ? cur+1 : cur-1;
+    }
+
+    /* ── Modal ────────────────────────────────────── */
+    function openUploadModal() {
+      pendingFile = null;
+      document.getElementById('modal-preview').classList.add('hidden');
+      document.getElementById('modal-upload-placeholder').classList.remove('hidden');
+      document.getElementById('post-caption').value = '';
+      document.getElementById('post-tags').value = '';
+      document.getElementById('ledger-check-result').classList.add('hidden');
+      const m = document.getElementById('upload-modal');
+      m.classList.remove('hidden'); m.classList.add('flex');
+    }
+
+    function closeUploadModal() {
+      const m = document.getElementById('upload-modal');
+      m.classList.add('hidden'); m.classList.remove('flex');
+    }
+
+    function handleDrop(e) {
+      e.preventDefault();
+      document.getElementById('modal-drop-zone').classList.remove('dragover');
+      const file = e.dataTransfer.files[0];
+      if (file && file.type.startsWith('image/')) setModalFile(file);
+    }
+
+    function handleModalFileSelect(e) {
+      const file = e.target.files[0];
+      if (file) setModalFile(file);
+    }
+
+    function setModalFile(file) {
+      pendingFile = file;
+      const reader = new FileReader();
+      reader.onload = ev => {
+        document.getElementById('modal-preview-img').src = ev.target.result;
+        document.getElementById('modal-preview').classList.remove('hidden');
+        document.getElementById('modal-upload-placeholder').classList.add('hidden');
+      };
+      reader.readAsDataURL(file);
+    }
+
+    /* ── Submit post (with ledger check) ──────────── */
+    async function submitPost() {
+      if (!pendingFile) { alert('Please select an image first.'); return; }
+
+      const btn = document.getElementById('submit-btn');
+      btn.disabled = true;
+      btn.innerHTML = `<span class="font-mono text-[10px] uppercase tracking-widest">Checking Ledger...</span>`;
+
+      const { sovereign, hash, entry } = await SovereignLedger.checkImage(pendingFile);
+
+      if (sovereign) {
+        // BLOCK
+        btn.disabled = false;
+        btn.innerHTML = `<i data-lucide="shield-check" class="w-4 h-4"></i> Post to Feed`;
+        lucide.createIcons({ nodes: [btn] });
+        closeUploadModal();
+
+        document.getElementById('block-hash').textContent   = hash.slice(0,24) + '…';
+        document.getElementById('block-signer').textContent = entry.signedBy;
+        document.getElementById('block-date').textContent   = new Date(entry.signedAt).toLocaleString();
+        document.getElementById('block-zk').textContent     = entry.zkProof || '—';
+
+        const overlay = document.getElementById('block-overlay');
+        overlay.classList.remove('hidden'); overlay.classList.add('flex');
+        return;
+      }
+
+      // SUCCESS — add to feed
+      const caption = document.getElementById('post-caption').value.trim() || 'Uploaded via SovereignGram.';
+      const tags    = (document.getElementById('post-tags').value.match(/#\w+/g) || ['#sovereign']).slice(0,3);
+      const themes  = ['cyan','lime','magenta'];
+
+      postCount++;
+      document.getElementById('stat-posts').textContent = postCount;
+      document.getElementById('post-count').textContent = postCount;
+
+      const newPost = {
+        id: 'u' + Date.now(),
+        user: '@sovereign.user',
+        avatar: 'SU',
+        color: '#ff00ff',
+        caption,
+        tags,
+        likes: 0,
+        time: 'just now',
+        verified: false,
+        canvasTheme: themes[postCount % themes.length],
+      };
+
+      posts.unshift(newPost);
+      renderPost(newPost, true);
+
+      btn.disabled = false;
+      btn.innerHTML = `<i data-lucide="shield-check" class="w-4 h-4"></i> Post to Feed`;
+      lucide.createIcons({ nodes: [btn] });
+      closeUploadModal();
+    }
+
+    function dismissBlockOverlay() {
+      const o = document.getElementById('block-overlay');
+      o.classList.add('hidden'); o.classList.remove('flex');
+    }
+
+    /* ── Ledger UI ────────────────────────────────── */
+    function refreshLedgerUI() {
+      const all     = SovereignLedger.getAll();
+      const entries = Object.values(all);
+      const cnt     = entries.length;
+
+      document.getElementById('ledger-count').textContent     = cnt;
+      document.getElementById('nav-ledger-count').textContent  = `${cnt} protected`;
+
+      const sidebar = document.getElementById('ledger-entries-sidebar');
+      if (cnt === 0) {
+        sidebar.innerHTML = `<div class="font-mono text-[8px] text-white/20 uppercase tracking-widest text-center py-3">Ledger empty</div>`;
+        return;
+      }
+      sidebar.innerHTML = entries.map(e => `
+        <div class="flex items-center gap-2 px-2 py-1.5 rounded-lg border border-white/5 bg-white/[0.02]">
+          <div class="w-1.5 h-1.5 rounded-full bg-neonCyan shrink-0"></div>
+          <div class="min-w-0">
+            <div class="font-mono text-[7px] text-white/40 uppercase tracking-widest truncate">${e.filename || 'unknown'}</div>
+            <div class="font-mono text-[6px] text-neonCyan/35 uppercase tracking-widest truncate">${e.hash.slice(0,18)}…</div>
+          </div>
+        </div>`).join('');
+    }
+
+    SovereignLedger.onLedgerUpdate(refreshLedgerUI);
+
+    /* ── Init ─────────────────────────────────────── */
+    buildStories();
+    buildSuggested();
+    DEMO_POSTS.forEach(p => renderPost(p, false));
+    refreshLedgerUI();
+  </script>
+</body>
+</html>
